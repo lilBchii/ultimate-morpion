@@ -48,13 +48,13 @@ struct Cell {
 }
 
 impl Cell {
-    pub fn new() -> Cell {
+    fn new() -> Cell {
         Cell {
             board: [CellState::Free; 9],
             state: CellState::Free,
         }
     }
-    pub fn all_occupied(&self) -> bool {
+    fn all_occupied(&self) -> bool {
         let mut b = true;
         for cell in self.board {
             if cell == CellState::Free {
@@ -63,7 +63,7 @@ impl Cell {
         }
         b
     }
-    pub fn is_won_by(&self, last_player: Player) -> bool {
+    fn is_won_by(&self, last_player: Player) -> bool {
         let player = CellState::Occupied(last_player);
 
         (self.board[0] == player && self.board[1] == player && self.board[2] == player)
@@ -92,7 +92,7 @@ struct Assets {
 }
 
 impl Assets {
-    pub fn new(ctx: &mut Context) -> GameResult<Assets> {
+    fn new(ctx: &mut Context) -> GameResult<Assets> {
         let mut vgrids: Vec<graphics::Mesh> = Vec::new();
         for index in 0..=8 {
             vgrids.push(make_grid_lines(
@@ -134,7 +134,7 @@ struct Morpion {
 }
 
 impl Morpion {
-    pub fn new(ctx: &mut Context) -> GameResult<Morpion> {
+    fn new(ctx: &mut Context) -> GameResult<Morpion> {
         Ok(Morpion {
             board: [Cell::new(); 9],
             state: GameState::Continue,
@@ -191,7 +191,7 @@ impl Morpion {
         }
     }
     
-    pub fn all_occupied(&self) -> bool {
+    fn all_occupied(&self) -> bool {
         let mut b = true;
         for cell in self.board {
             if cell.state == CellState::Free {
@@ -200,7 +200,7 @@ impl Morpion {
         }
         b
     }
-    pub fn is_won(&self) -> bool {
+    fn is_won(&self) -> bool {
         let player = CellState::Occupied(self.last_play.0);
 
         (self.board[0].state == player
@@ -407,10 +407,10 @@ fn make_grid_lines(
 fn main() -> GameResult {
     let resource_dir = if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
         let mut path = path::PathBuf::from(manifest_dir);
-        path.push("resources");
+        path.push("ressources");
         path
     } else {
-        path::PathBuf::from("./resources")
+        path::PathBuf::from("./ressources")
     };
 
     let (mut ctx, events_loop) = ggez::ContextBuilder::new("ultimate-morpion", "lilBchii")
