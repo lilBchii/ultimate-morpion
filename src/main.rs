@@ -25,6 +25,15 @@ enum Player {
     O,
 }
 
+impl Player {
+    fn other(&self) -> Player {
+        match self {
+            Player::X => Player::O,
+            Player::O => Player::X,
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum CellState {
     Occupied(Player),
@@ -272,17 +281,12 @@ impl EventHandler for Morpion {
                                 // There is no focused big cell
                                 None => {
                                     self.play(ult_index, index);
-                                    println!("{:?} {:?}", self.player, self.board[ult_index].state);
                                 }
                                 // There is a focused big cell
                                 Some(obliged_index) => {
                                     // If player clicked on right big cell
                                     if ult_index == obliged_index {
                                         self.play(ult_index, index);
-                                        println!(
-                                            "{:?} {:?}",
-                                            self.player, self.board[ult_index].state
-                                        );
                                     }
                                 }
                             }
