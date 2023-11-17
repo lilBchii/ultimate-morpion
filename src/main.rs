@@ -201,7 +201,7 @@ impl Morpion {
         b
     }
     fn is_won(&self) -> bool {
-        let player = CellState::Occupied(self.last_play.0);
+        let player = CellState::Occupied(self.player.other());
 
         (self.board[0].state == player
             && self.board[1].state == player
