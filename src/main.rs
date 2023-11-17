@@ -118,7 +118,8 @@ impl Assets {
 struct Morpion {
     board: [Cell; 9],
     state: GameState,
-    last_play: (Player, Option<usize>),
+    player: Player, 
+    focused_big_cell: Option<usize>,
     meshes: Assets,
     clicked: (bool, Option<(usize, usize)>),
 }
@@ -128,40 +129,59 @@ impl Morpion {
         Ok(Morpion {
             board: [Cell::new(); 9],
             state: GameState::Continue,
-            last_play: (Player::X, None),
+            player: Player::X, 
+            focused_big_cell: None,
             meshes: Assets::new(ctx)?,
             clicked: (false, None),
         })
     }
-
-    // Determine who's playing, change cellstate where it's playing, determine where to play next
-    pub fn play(&mut self, ult_index: usize, index: usize) {
-        match self.last_play.0 {
+    
+    fn play(&mut self, ult_index: usize, index: usize) {
+        let player = self.player;
+        match player {
+            // If player is X
             Player::X => {
-                self.board[ult_index].board[index] = CellState::Occupied(Player::O);
-                // Check if next turn we play everywhere or not
-                if self.board[index].state == CellState::Tie
-                    || self.board[index].state == CellState::Occupied(Player::X)
-                    || self.board[index].state == CellState::Occupied(Player::O)
-                {
-                    self.last_play = (Player::O, None);
-                } else {
-                    self.last_play = (Player::O, Some(index));
+                // Cell becomes occupied by X
+                self.board[ult_index].board[index] = CellState::Occupied(player);
+                let big_cell = self.board[ult_index];
+                // If big cell is won by X so big cell is now occupied
+                if big_cell.is_won_by(player) {
+                    self.board[ult_index].state = CellState::Occupied(player);
+                } else if big_cell.all_occupied() {
+                    // Else if all cells of big cell are occupied then big cell is tie
+                    self.board[ult_index].state = CellState::Tie;
                 }
+                // Check if index is free to determine next focused big cell
+                match self.board[index].state {
+                    CellState::Free => self.focused_big_cell = Some(index),
+                    _ => self.focused_big_cell = None,
+                }
+                // Change player
+                self.player = Player::O;
             }
+            // If player is O
             Player::O => {
-                self.board[ult_index].board[index] = CellState::Occupied(Player::X);
-                if self.board[index].state == CellState::Tie
-                    || self.board[index].state == CellState::Occupied(Player::X)
-                    || self.board[index].state == CellState::Occupied(Player::O)
-                {
-                    self.last_play = (Player::X, None);
-                } else {
-                    self.last_play = (Player::X, Some(index));
+                // Cell becomes occupied by O
+                self.board[ult_index].board[index] = CellState::Occupied(player);
+                let big_cell = self.board[ult_index];
+                // If big cell is won by O so big cell is now occupied
+                if big_cell.is_won_by(player) {
+                    self.board[ult_index].state = CellState::Occupied(player);
+                } else if big_cell.all_occupied() {
+                    // Else if all cells of big cell are occupied then big cell is tie
+                    self.board[ult_index].state = CellState::Tie;
                 }
+                // Check if index is free to determine next focused big cell
+                match self.board[index].state {
+                    CellState::Free => self.focused_big_cell = Some(index),
+                    _ => self.focused_big_cell = None,
+                }
+                // Change player
+                self.player = Player::X;
             }
         }
     }
+    
     pub fn all_occupied(&self) -> bool {
         let mut b = true;
         for cell in self.board {
@@ -234,33 +254,42 @@ impl EventHandler for Morpion {
         }
         canvas.finish(ctx)
     }
-
+    
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         while ctx.time.check_update_time(DESIRED_FPS) {
             match self.state {
                 GameState::Continue => {
+                    // If cell clicked
                     if self.clicked.0 {
                         let (ult_index, index) = self.clicked.1.unwrap();
-                        if self.board[ult_index].state == CellState::Free {
-                            match self.last_play.1 {
+                        let big_cell = self.board[ult_index];
+                        let cell = big_cell.board[index];
+                        // If big cell is free and cell is free
+                        if big_cell.state == CellState::Free && cell == CellState::Free {
+                            let where_to_play = self.focused_big_cell;
+                            // Get where to play
+                            match where_to_play {
+                                // There is no focused big cell
                                 None => {
                                     self.play(ult_index, index);
+                                    println!("{:?} {:?}", self.player, self.board[ult_index].state);
                                 }
+                                // There is a focused big cell
                                 Some(obliged_index) => {
+                                    // If player clicked on right big cell
                                     if ult_index == obliged_index {
                                         self.play(ult_index, index);
+                                        println!(
+                                            "{:?} {:?}",
+                                            self.player, self.board[ult_index].state
+                                        );
                                     }
                                 }
                             }
-                        }
-                        if self.board[ult_index].is_won_by(self.last_play.0) {
-                            self.board[ult_index].state = CellState::Occupied(self.last_play.0);
-                        } else if self.board[ult_index].all_occupied() {
-                            self.board[ult_index].state = CellState::Tie;
-                        }
+                        } // else nothing
                     }
                     if self.is_won() {
-                        self.state = GameState::Win(self.last_play.0);
+                        self.state = GameState::Win(self.player.other());
                     } else if self.all_occupied() {
                         self.state = GameState::Tie;
                     }
@@ -300,16 +329,16 @@ impl EventHandler for Morpion {
 }
 
 fn ids_from_coord(x: f32, y: f32) -> (usize, usize) {
-    let ult_raw = ((x - BORDER_PADDING) / BIG_CELL_SIZE) as usize + 1;
+    let ult_col = ((x - BORDER_PADDING) / BIG_CELL_SIZE) as usize + 1;
     let ult_line = ((y - BORDER_PADDING) / BIG_CELL_SIZE) as usize + 1;
-    let ultimate_coord = 3 * ult_line - (3 - ult_raw) - 1;
-    let raw = ((x - BORDER_PADDING - CELL_PADDING - ((ult_raw - 1) as f32 * BIG_CELL_SIZE))
+    let ultimate_coord = 3 * ult_line - (3 - ult_col) - 1;
+    let col = ((x - BORDER_PADDING - CELL_PADDING - ((ult_col - 1) as f32 * BIG_CELL_SIZE))
         / CELL_SIZE) as usize
         + 1;
     let line = ((y - BORDER_PADDING - CELL_PADDING - ((ult_line - 1) as f32 * BIG_CELL_SIZE))
         / CELL_SIZE) as usize
         + 1;
-    let coord = 3 * line - (3 - raw) - 1;
+    let coord = 3 * line - (3 - col) - 1;
     //let coord = 1;
     (ultimate_coord, coord)
 }
