@@ -86,39 +86,37 @@ enum GameState {
 }
 
 struct Assets {
-    grid: graphics::Mesh,
-    grids: Vec<graphics::Mesh>,
+    big_grid: graphics::Mesh,
+    focused_grid: graphics::Mesh,
+    lil_grid: graphics::Mesh,
     cross: graphics::Image,
     circle: graphics::Image,
 }
 
 impl Assets {
     fn new(ctx: &mut Context) -> GameResult<Assets> {
-        let mut vgrids: Vec<graphics::Mesh> = Vec::new();
-        for index in 0..=8 {
-            vgrids.push(make_grid_lines(
-                ctx,
-                4.5,
-                Color::from_rgb(55, 60, 75),
-                (
-                    BORDER_PADDING + CELL_PADDING + ((index as u32 % 3) as f32) * BIG_CELL_SIZE,
-                    BORDER_PADDING
-                        + CELL_PADDING
-                        + (((index - index % 3) / 3) as f32) * BIG_CELL_SIZE,
-                ),
-                /*coord_from_id(index as usize, BIG_CELL_SIZE, BORDER_PADDING + CELL_PADDING),*/
-                CELL_SIZE,
-            )?);
-        }
         Ok(Assets {
-            grid: make_grid_lines(
+            big_grid: make_grid_lines(
                 ctx,
                 6.5,
                 Color::from_rgb(55, 60, 75),
                 (BORDER_PADDING, BORDER_PADDING),
                 BIG_CELL_SIZE,
             )?,
-            grids: vgrids,
+            focused_grid: make_grid_lines(
+                ctx,
+                4.5,
+                Color::from_rgb(90, 100, 125),
+                (0.0, 0.0),
+                CELL_SIZE,
+            )?,
+            lil_grid: make_grid_lines(
+                ctx,
+                4.5,
+                Color::from_rgb(55, 60, 75),
+                (0.0, 0.0),
+                CELL_SIZE,
+            )?,
             cross: graphics::Image::from_path(ctx, "/cross.png")?,
             circle: graphics::Image::from_path(ctx, "/circle.png")?,
         })
@@ -128,7 +126,7 @@ impl Assets {
 struct Morpion {
     board: [Cell; 9],
     state: GameState,
-    player: Player, 
+    player: Player,
     focused_big_cell: Option<usize>,
     meshes: Assets,
     clicked: (bool, Option<(usize, usize)>),
@@ -139,13 +137,13 @@ impl Morpion {
         Ok(Morpion {
             board: [Cell::new(); 9],
             state: GameState::Continue,
-            player: Player::X, 
+            player: Player::X,
             focused_big_cell: None,
             meshes: Assets::new(ctx)?,
             clicked: (false, None),
         })
     }
-    
+
     fn play(&mut self, ult_index: usize, index: usize) {
         let player = self.player;
         match player {
@@ -191,7 +189,7 @@ impl Morpion {
             }
         }
     }
-    
+
     fn all_occupied(&self) -> bool {
         let mut b = true;
         for cell in self.board {
@@ -235,7 +233,6 @@ impl Morpion {
         self.player = Player::X;
         self.focused_big_cell = None;
     }
-
 }
 
 impl EventHandler for Morpion {
@@ -243,10 +240,41 @@ impl EventHandler for Morpion {
         let mut canvas =
             graphics::Canvas::from_frame(ctx, Color::from_rgb(BG_COLOR.0, BG_COLOR.1, BG_COLOR.2));
         // Grid
-        canvas.draw(&self.meshes.grid, graphics::DrawParam::default());
+        canvas.draw(&self.meshes.big_grid, graphics::DrawParam::default());
         // Grids
-        for g in self.meshes.grids.iter() {
-            canvas.draw(g, graphics::DrawParam::default());
+        match self.focused_big_cell {
+            Some(index) => {
+                for i in 0..=8 {
+                    let dst = glam::Vec2::new(
+                        BORDER_PADDING + CELL_PADDING + ((i as u32 % 3) as f32) * BIG_CELL_SIZE,
+                        BORDER_PADDING + CELL_PADDING + (((i - i % 3) / 3) as f32) * BIG_CELL_SIZE,
+                    );
+                    if i == index {
+                        canvas.draw(
+                            &self.meshes.focused_grid,
+                            graphics::DrawParam::new().dest(dst),
+                        );
+                    } else {
+                        canvas.draw(&self.meshes.lil_grid, graphics::DrawParam::new().dest(dst));
+                    }
+                }
+            }
+            None => {
+                for i in 0..=8 {
+                    let dst = glam::Vec2::new(
+                        BORDER_PADDING + CELL_PADDING + ((i as u32 % 3) as f32) * BIG_CELL_SIZE,
+                        BORDER_PADDING + CELL_PADDING + (((i - i % 3) / 3) as f32) * BIG_CELL_SIZE,
+                    );
+                    if self.board[i].state == CellState::Free {
+                        canvas.draw(
+                            &self.meshes.focused_grid,
+                            graphics::DrawParam::new().dest(dst),
+                        );
+                    } else {
+                        canvas.draw(&self.meshes.lil_grid, graphics::DrawParam::new().dest(dst));
+                    }
+                }
+            }
         }
         // Crosses and Circles
         for (ult_index, ult_cell) in self.board.iter().enumerate() {
@@ -271,7 +299,7 @@ impl EventHandler for Morpion {
         }
         canvas.finish(ctx)
     }
-    
+
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         while ctx.time.check_update_time(DESIRED_FPS) {
             match self.state {
@@ -355,7 +383,6 @@ fn ids_from_coord(x: f32, y: f32) -> (usize, usize) {
         / CELL_SIZE) as usize
         + 1;
     let coord = 3 * line - (3 - col) - 1;
-    //let coord = 1;
     (ultimate_coord, coord)
 }
 
