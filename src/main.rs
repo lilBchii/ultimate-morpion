@@ -6,8 +6,6 @@ use glam::Vec2;
 
 use std::{env, path};
 
-const BG_COLOR: (u8, u8, u8) = (30, 30, 38);
-
 const CELL_PADDING: f32 = 10.0;
 const BORDER_PADDING: f32 = 50.0;
 const CELL_SIZE: f32 = 75.0;
@@ -89,8 +87,10 @@ struct Assets {
     big_grid: graphics::Mesh,
     focused_grid: graphics::Mesh,
     lil_grid: graphics::Mesh,
-    cross: graphics::Image,
-    circle: graphics::Image,
+    cross75: graphics::Image,
+    circle75: graphics::Image,
+    cross245: graphics::Image,
+    circle245: graphics::Image,
 }
 
 impl Assets {
@@ -117,8 +117,10 @@ impl Assets {
                 (0.0, 0.0),
                 CELL_SIZE,
             )?,
-            cross: graphics::Image::from_path(ctx, "/cross.png")?,
-            circle: graphics::Image::from_path(ctx, "/circle.png")?,
+            cross75: graphics::Image::from_path(ctx, "/cross.png")?,
+            circle75: graphics::Image::from_path(ctx, "/circle.png")?,
+            cross245: graphics::Image::from_path(ctx, "/cross_245x245.png")?,
+            circle245: graphics::Image::from_path(ctx, "/circle_245x245.png")?,
         })
     }
 }
@@ -237,8 +239,7 @@ impl Morpion {
 
 impl EventHandler for Morpion {
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        let mut canvas =
-            graphics::Canvas::from_frame(ctx, Color::from_rgb(BG_COLOR.0, BG_COLOR.1, BG_COLOR.2));
+        let mut canvas = graphics::Canvas::from_frame(ctx, Color::from_rgb(30, 30, 38));
         // Grid
         canvas.draw(&self.meshes.big_grid, graphics::DrawParam::default());
         // Grids
@@ -284,16 +285,34 @@ impl EventHandler for Morpion {
                     CellState::Free | CellState::Tie => {}
                     CellState::Occupied(Player::X) => {
                         canvas.draw(
-                            &self.meshes.cross,
+                            &self.meshes.cross75,
                             graphics::DrawParam::new().dest(Vec2::new(x, y)),
                         );
                     }
                     CellState::Occupied(Player::O) => {
                         canvas.draw(
-                            &self.meshes.circle,
+                            &self.meshes.circle75,
                             graphics::DrawParam::new().dest(Vec2::new(x, y)),
                         );
                     }
+                }
+            }
+            let (x, y) = coord_from_ids(ult_index, 0);
+            match ult_cell.state {
+                CellState::Free | CellState::Tie => {}
+                CellState::Occupied(Player::X) => {
+                    canvas.draw(
+                        &self.meshes.cross245,
+                        graphics::DrawParam::new()
+                            .dest(Vec2::new(x - CELL_PADDING, y - CELL_PADDING)),
+                    );
+                }
+                CellState::Occupied(Player::O) => {
+                    canvas.draw(
+                        &self.meshes.circle245,
+                        graphics::DrawParam::new()
+                            .dest(Vec2::new(x - CELL_PADDING, y - CELL_PADDING)),
+                    );
                 }
             }
         }
@@ -356,7 +375,9 @@ impl EventHandler for Morpion {
         x: f32,
         y: f32,
     ) -> GameResult {
-        self.clicked = (true, Some(ids_from_coord(x, y)));
+        if let Some((ult_index, index)) = ids_from_coord(x, y) {
+            self.clicked = (true, Some((ult_index, index)));
+        }
         Ok(())
     }
 
@@ -372,18 +393,24 @@ impl EventHandler for Morpion {
     }
 }
 
-fn ids_from_coord(x: f32, y: f32) -> (usize, usize) {
-    let ult_col = ((x - BORDER_PADDING) / BIG_CELL_SIZE) as usize + 1;
-    let ult_line = ((y - BORDER_PADDING) / BIG_CELL_SIZE) as usize + 1;
-    let ultimate_coord = 3 * ult_line - (3 - ult_col) - 1;
-    let col = ((x - BORDER_PADDING - CELL_PADDING - ((ult_col - 1) as f32 * BIG_CELL_SIZE))
-        / CELL_SIZE) as usize
-        + 1;
-    let line = ((y - BORDER_PADDING - CELL_PADDING - ((ult_line - 1) as f32 * BIG_CELL_SIZE))
-        / CELL_SIZE) as usize
-        + 1;
-    let coord = 3 * line - (3 - col) - 1;
-    (ultimate_coord, coord)
+fn ids_from_coord(x: f32, y: f32) -> Option<(usize, usize)> {
+    if (x > BORDER_PADDING && x < BORDER_PADDING + 3.0 * BIG_CELL_SIZE)
+        && (y > BORDER_PADDING && y < BORDER_PADDING + 3.0 * BIG_CELL_SIZE)
+    {
+        let ult_col = ((x - BORDER_PADDING) / BIG_CELL_SIZE) as usize + 1;
+        let ult_line = ((y - BORDER_PADDING) / BIG_CELL_SIZE) as usize + 1;
+        let ultimate_coord = 3 * ult_line - (3 - ult_col) - 1;
+        let col = ((x - BORDER_PADDING - CELL_PADDING - ((ult_col - 1) as f32 * BIG_CELL_SIZE))
+            / CELL_SIZE) as usize
+            + 1;
+        let line = ((y - BORDER_PADDING - CELL_PADDING - ((ult_line - 1) as f32 * BIG_CELL_SIZE))
+            / CELL_SIZE) as usize
+            + 1;
+        let coord = 3 * line - (3 - col) - 1;
+        Some((ultimate_coord, coord))
+    } else {
+        None
+    }
 }
 
 fn coord_from_ids(ult_index: usize, index: usize) -> (f32, f32) {
