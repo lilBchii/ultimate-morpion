@@ -1,5 +1,5 @@
 use ggez::event::{self, EventHandler, MouseButton};
-use ggez::graphics::{self, Color};
+use ggez::graphics::{self, Color, Rect};
 use ggez::input::keyboard::KeyCode;
 use ggez::{Context, GameResult};
 use glam::Vec2;
@@ -15,6 +15,8 @@ const SCREEN_SIZE: (f32, f32) = (
     (CELL_SIZE * 9.0) + (6.0 * CELL_PADDING) + (2.0 * BORDER_PADDING),
     (CELL_SIZE * 9.0) + (6.0 * CELL_PADDING) + (2.0 * BORDER_PADDING),
 );
+
+const CROSS_CIRCLE_SCALE_FACTOR: f32 = 0.30612245;
 
 const DESIRED_FPS: u32 = 15;
 
@@ -81,8 +83,6 @@ struct Assets {
     big_grid: graphics::Mesh,
     focused_grid: graphics::Mesh,
     lil_grid: graphics::Mesh,
-    cross75: graphics::Image,
-    circle75: graphics::Image,
     cross245: graphics::Image,
     circle245: graphics::Image,
 }
@@ -111,8 +111,6 @@ impl Assets {
                 (0.0, 0.0),
                 CELL_SIZE,
             )?,
-            cross75: graphics::Image::from_path(ctx, "/cross.png")?,
-            circle75: graphics::Image::from_path(ctx, "/circle.png")?,
             cross245: graphics::Image::from_path(ctx, "/cross_245x245.png")?,
             circle245: graphics::Image::from_path(ctx, "/circle_245x245.png")?,
         })
@@ -272,14 +270,24 @@ impl EventHandler for Morpion {
                     CellState::Free | CellState::Tie => {}
                     CellState::Occupied(Player::X) => {
                         canvas.draw(
-                            &self.meshes.cross75,
-                            graphics::DrawParam::new().dest(Vec2::new(x, y)),
+                            &self.meshes.cross245,
+                            graphics::DrawParam::new().dest_rect(Rect::new(
+                                x,
+                                y,
+                                CROSS_CIRCLE_SCALE_FACTOR,
+                                CROSS_CIRCLE_SCALE_FACTOR,
+                            )),
                         );
                     }
                     CellState::Occupied(Player::O) => {
                         canvas.draw(
-                            &self.meshes.circle75,
-                            graphics::DrawParam::new().dest(Vec2::new(x, y)),
+                            &self.meshes.circle245,
+                            graphics::DrawParam::new().dest_rect(Rect::new(
+                                x,
+                                y,
+                                CROSS_CIRCLE_SCALE_FACTOR,
+                                CROSS_CIRCLE_SCALE_FACTOR,
+                            )),
                         );
                     }
                 }
@@ -316,9 +324,8 @@ impl EventHandler for Morpion {
                         let cell = big_cell.board[index];
                         // If big cell is free and cell is free
                         if big_cell.state == CellState::Free && cell == CellState::Free {
-                            let where_to_play = self.focused_big_cell;
                             // Get where to play
-                            match where_to_play {
+                            match self.focused_big_cell {
                                 // There is no focused big cell
                                 None => {
                                     self.play(ult_index, index);
