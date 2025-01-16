@@ -1,5 +1,5 @@
 use ggez::event::{self, EventHandler, MouseButton};
-use ggez::graphics::{self, Color, Rect};
+use ggez::graphics::{self, Color, PxScale, Rect, Text};
 use ggez::input::keyboard::KeyCode;
 use ggez::{Context, GameResult};
 use glam::Vec2;
@@ -13,7 +13,7 @@ const BIG_CELL_SIZE: f32 = 3.0 * CELL_SIZE + 2.0 * CELL_PADDING;
 
 const SCREEN_SIZE: (f32, f32) = (
     (CELL_SIZE * 9.0) + (6.0 * CELL_PADDING) + (2.0 * BORDER_PADDING),
-    (CELL_SIZE * 9.0) + (6.0 * CELL_PADDING) + (2.0 * BORDER_PADDING),
+    (CELL_SIZE * 9.0) + (6.0 * CELL_PADDING) + (3.0 * BORDER_PADDING),
 );
 
 const CROSS_CIRCLE_SCALE_FACTOR: f32 = 0.30612245;
@@ -32,6 +32,12 @@ impl Player {
             Player::X => Player::O,
             Player::O => Player::X,
         }
+    }
+}
+
+impl std::fmt::Display for Player {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {Self::X => "X", Self::O => "O"})
     }
 }
 
@@ -123,6 +129,7 @@ struct Morpion {
     player: Player,
     focused_big_cell: Option<usize>,
     meshes: Assets,
+    text: Text,
     clicked: Option<(usize, usize)>,
 }
 
@@ -134,6 +141,7 @@ impl Morpion {
             player: Player::X,
             focused_big_cell: None,
             meshes: Assets::new(ctx)?,
+            text: Text::new("X begins !"),
             clicked: None,
         })
     }
@@ -194,6 +202,7 @@ impl Morpion {
         self.state = GameState::Continue;
         self.player = Player::X;
         self.focused_big_cell = None;
+        self.text = Text::new("X begins !");
     }
 }
 
@@ -203,39 +212,17 @@ impl EventHandler for Morpion {
         // Grid
         canvas.draw(&self.meshes.big_grid, graphics::DrawParam::default());
         // Grids
-        match self.focused_big_cell {
-            Some(index) => {
-                for i in 0..=8 {
-                    let dst = glam::Vec2::new(
-                        BORDER_PADDING + CELL_PADDING + ((i as u32 % 3) as f32) * BIG_CELL_SIZE,
-                        BORDER_PADDING + CELL_PADDING + (((i - i % 3) / 3) as f32) * BIG_CELL_SIZE,
-                    );
-                    if i == index {
-                        canvas.draw(
-                            &self.meshes.focused_grid,
-                            graphics::DrawParam::new().dest(dst),
-                        );
-                    } else {
-                        canvas.draw(&self.meshes.lil_grid, graphics::DrawParam::new().dest(dst));
-                    }
-                }
-            }
-            None => {
-                for i in 0..=8 {
-                    let dst = glam::Vec2::new(
-                        BORDER_PADDING + CELL_PADDING + ((i as u32 % 3) as f32) * BIG_CELL_SIZE,
-                        BORDER_PADDING + CELL_PADDING + (((i - i % 3) / 3) as f32) * BIG_CELL_SIZE,
-                    );
-                    if self.board[i].state == CellState::Free {
-                        canvas.draw(
-                            &self.meshes.focused_grid,
-                            graphics::DrawParam::new().dest(dst),
-                        );
-                    } else {
-                        canvas.draw(&self.meshes.lil_grid, graphics::DrawParam::new().dest(dst));
-                    }
-                }
-            }
+        for i in 0..9 {
+            let dst = Vec2::new(
+                BORDER_PADDING + CELL_PADDING + ((i as u32 % 3) as f32) * BIG_CELL_SIZE,
+                BORDER_PADDING + CELL_PADDING + (((i - i % 3) / 3) as f32) * BIG_CELL_SIZE,
+            );
+            let mesh = match self.focused_big_cell {
+                Some(index) if index == i => &self.meshes.focused_grid,
+                None if self.board[i].state == CellState::Free => &self.meshes.focused_grid,
+                _ => &self.meshes.lil_grid,
+            };
+            canvas.draw(mesh, graphics::DrawParam::new().dest(dst));
         }
         // Crosses and Circles
         for (ult_index, ult_cell) in self.board.iter().enumerate() {
@@ -286,6 +273,12 @@ impl EventHandler for Morpion {
                 }
             }
         }
+        // Text
+        canvas.draw(
+            &self.text,
+            graphics::DrawParam::from([BORDER_PADDING, SCREEN_SIZE.1 - BORDER_PADDING])
+                .color(Color::WHITE),
+        );
         canvas.finish(ctx)
     }
 
@@ -313,6 +306,7 @@ impl EventHandler for Morpion {
                                     }
                                 }
                             }
+                            self.text = Text::new(format!("{}'s turn !", self.player));
                         } // else nothing
                     }
                     if self.is_won() {
@@ -322,11 +316,13 @@ impl EventHandler for Morpion {
                     }
                 }
                 GameState::Tie => {
+                    self.text = Text::new("Tie !\nPress R to restart");
                     if ctx.keyboard.is_key_pressed(KeyCode::R) {
                         self.reset();
                     }
                 }
-                _ => {
+                GameState::Win(player) => {
+                    self.text = Text::new(format!("{} has won\nPress R to restart", player));
                     if ctx.keyboard.is_key_pressed(KeyCode::R) {
                         self.reset();
                     }
