@@ -54,13 +54,7 @@ impl Cell {
         }
     }
     fn all_occupied(&self) -> bool {
-        let mut b = true;
-        for cell in self.board {
-            if cell == CellState::Free {
-                b = false;
-            }
-        }
-        b
+        self.board.iter().all(|cell| *cell != CellState::Free)
     }
     fn is_won_by(&self, last_player: Player) -> bool {
         let player = CellState::Occupied(last_player);
@@ -131,7 +125,7 @@ struct Morpion {
     player: Player,
     focused_big_cell: Option<usize>,
     meshes: Assets,
-    clicked: (bool, Option<(usize, usize)>),
+    clicked: Option<(usize, usize)>,
 }
 
 impl Morpion {
@@ -142,21 +136,20 @@ impl Morpion {
             player: Player::X,
             focused_big_cell: None,
             meshes: Assets::new(ctx)?,
-            clicked: (false, None),
+            clicked: None,
         })
     }
 
     fn play(&mut self, ult_index: usize, index: usize) {
-        let player = self.player;
-        match player {
+        match self.player {
             // If player is X
             Player::X => {
                 // Cell becomes occupied by X
-                self.board[ult_index].board[index] = CellState::Occupied(player);
+                self.board[ult_index].board[index] = CellState::Occupied(self.player);
                 let big_cell = self.board[ult_index];
                 // If big cell is won by X so big cell is now occupied
-                if big_cell.is_won_by(player) {
-                    self.board[ult_index].state = CellState::Occupied(player);
+                if big_cell.is_won_by(self.player) {
+                    self.board[ult_index].state = CellState::Occupied(self.player);
                 } else if big_cell.all_occupied() {
                     // Else if all cells of big cell are occupied then big cell is tie
                     self.board[ult_index].state = CellState::Tie;
@@ -172,11 +165,11 @@ impl Morpion {
             // If player is O
             Player::O => {
                 // Cell becomes occupied by O
-                self.board[ult_index].board[index] = CellState::Occupied(player);
+                self.board[ult_index].board[index] = CellState::Occupied(self.player);
                 let big_cell = self.board[ult_index];
                 // If big cell is won by O so big cell is now occupied
-                if big_cell.is_won_by(player) {
-                    self.board[ult_index].state = CellState::Occupied(player);
+                if big_cell.is_won_by(self.player) {
+                    self.board[ult_index].state = CellState::Occupied(self.player);
                 } else if big_cell.all_occupied() {
                     // Else if all cells of big cell are occupied then big cell is tie
                     self.board[ult_index].state = CellState::Tie;
@@ -193,13 +186,7 @@ impl Morpion {
     }
 
     fn all_occupied(&self) -> bool {
-        let mut b = true;
-        for cell in self.board {
-            if cell.state == CellState::Free {
-                b = false;
-            }
-        }
-        b
+        self.board.iter().all(|cell| cell.state != CellState::Free)
     }
     fn is_won(&self) -> bool {
         let player = CellState::Occupied(self.player.other());
@@ -324,8 +311,7 @@ impl EventHandler for Morpion {
             match self.state {
                 GameState::Continue => {
                     // If cell clicked
-                    if self.clicked.0 {
-                        let (ult_index, index) = self.clicked.1.unwrap();
+                    if let Some((ult_index, index)) = self.clicked {
                         let big_cell = self.board[ult_index];
                         let cell = big_cell.board[index];
                         // If big cell is free and cell is free
@@ -376,7 +362,7 @@ impl EventHandler for Morpion {
         y: f32,
     ) -> GameResult {
         if let Some((ult_index, index)) = ids_from_coord(x, y) {
-            self.clicked = (true, Some((ult_index, index)));
+            self.clicked = Some((ult_index, index));
         }
         Ok(())
     }
@@ -388,7 +374,7 @@ impl EventHandler for Morpion {
         _x: f32,
         _y: f32,
     ) -> GameResult {
-        self.clicked = (false, None);
+        self.clicked = None;
         Ok(())
     }
 }
