@@ -1,24 +1,19 @@
 use ggez::event::{self, EventHandler, MouseButton};
-use ggez::graphics::{self, Color, PxScale, Rect, Text};
+use ggez::graphics::{self, Color, Rect, Text};
 use ggez::input::keyboard::KeyCode;
 use ggez::{Context, GameResult};
 use glam::Vec2;
 
 use std::{env, path};
 
-const CELL_PADDING: f32 = 10.0;
-const BORDER_PADDING: f32 = 50.0;
-const CELL_SIZE: f32 = 75.0;
-const BIG_CELL_SIZE: f32 = 3.0 * CELL_SIZE + 2.0 * CELL_PADDING;
+mod assets;
+mod constants;
 
-const SCREEN_SIZE: (f32, f32) = (
-    (CELL_SIZE * 9.0) + (6.0 * CELL_PADDING) + (2.0 * BORDER_PADDING),
-    (CELL_SIZE * 9.0) + (6.0 * CELL_PADDING) + (3.0 * BORDER_PADDING),
-);
-
-const CROSS_CIRCLE_SCALE_FACTOR: f32 = 0.30612245;
-
-const DESIRED_FPS: u32 = 15;
+use assets::Assets;
+use constants::{
+    BIG_CELL_SIZE, BORDER_PADDING, CELL_PADDING, CELL_SIZE, CROSS_CIRCLE_SCALE_FACTOR, DESIRED_FPS,
+    SCREEN_SIZE,
+};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Player {
@@ -37,7 +32,14 @@ impl Player {
 
 impl std::fmt::Display for Player {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {Self::X => "X", Self::O => "O"})
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::X => "X",
+                Self::O => "O",
+            }
+        )
     }
 }
 
@@ -83,44 +85,6 @@ enum GameState {
     Tie,
     Win(Player),
     Continue,
-}
-
-struct Assets {
-    big_grid: graphics::Mesh,
-    focused_grid: graphics::Mesh,
-    lil_grid: graphics::Mesh,
-    cross245: graphics::Image,
-    circle245: graphics::Image,
-}
-
-impl Assets {
-    fn new(ctx: &mut Context) -> GameResult<Assets> {
-        Ok(Assets {
-            big_grid: make_grid_lines(
-                ctx,
-                6.5,
-                Color::from_rgb(55, 60, 75),
-                (BORDER_PADDING, BORDER_PADDING),
-                BIG_CELL_SIZE,
-            )?,
-            focused_grid: make_grid_lines(
-                ctx,
-                4.5,
-                Color::from_rgb(90, 100, 125),
-                (0.0, 0.0),
-                CELL_SIZE,
-            )?,
-            lil_grid: make_grid_lines(
-                ctx,
-                4.5,
-                Color::from_rgb(55, 60, 75),
-                (0.0, 0.0),
-                CELL_SIZE,
-            )?,
-            cross245: graphics::Image::from_path(ctx, "/cross_245x245.png")?,
-            circle245: graphics::Image::from_path(ctx, "/circle_245x245.png")?,
-        })
-    }
 }
 
 struct Morpion {
@@ -388,50 +352,6 @@ fn coord_from_ids(ult_index: usize, index: usize) -> (f32, f32) {
             + CELL_PADDING
             + ((index - (index % 3)) / 3) as f32 * CELL_SIZE,
     )
-}
-
-// New mesh for the 3x3 grid
-fn make_grid_lines(
-    ctx: &mut Context,
-    width: f32,
-    color: Color,
-    anchor: (f32, f32),
-    cellsize: f32,
-) -> GameResult<graphics::Mesh> {
-    let l = &mut graphics::MeshBuilder::new();
-    l.line(
-        &[
-            Vec2::new(anchor.0 + cellsize, anchor.1),
-            Vec2::new(anchor.0 + cellsize, anchor.1 + cellsize * 3.0),
-        ],
-        width,
-        color,
-    )?;
-    l.line(
-        &[
-            Vec2::new(anchor.0 + 2.0 * cellsize, anchor.1),
-            Vec2::new(anchor.0 + 2.0 * cellsize, anchor.1 + cellsize * 3.0),
-        ],
-        width,
-        color,
-    )?;
-    l.line(
-        &[
-            Vec2::new(anchor.0, anchor.1 + cellsize),
-            Vec2::new(anchor.0 + 3.0 * cellsize, anchor.1 + cellsize),
-        ],
-        width,
-        color,
-    )?;
-    l.line(
-        &[
-            Vec2::new(anchor.0, anchor.1 + 2.0 * cellsize),
-            Vec2::new(anchor.0 + 3.0 * cellsize, anchor.1 + 2.0 * cellsize),
-        ],
-        width,
-        color,
-    )?;
-    Ok(graphics::Mesh::from_data(ctx, l.build()))
 }
 
 fn main() -> GameResult {
