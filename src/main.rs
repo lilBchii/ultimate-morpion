@@ -110,7 +110,7 @@ impl Morpion {
         })
     }
 
-    fn play(&mut self, ult_index: usize, index: usize) {
+    fn play_at(&mut self, ult_index: usize, index: usize) {
         // Cell becomes occupied by player
         self.board[ult_index].board[index] = CellState::Occupied(self.player);
         let big_cell = self.board[ult_index];
@@ -128,6 +128,36 @@ impl Morpion {
         }
         // Change player
         self.player = self.player.other();
+    }
+
+    fn player_plays(&mut self) {
+        // If cell clicked
+        if let Some((ult_index, index)) = self.clicked {
+            let big_cell = self.board[ult_index];
+            let cell = big_cell.board[index];
+            // If big cell is free and cell is free
+            if big_cell.state == CellState::Free && cell == CellState::Free {
+                // Get where to play
+                match self.focused_big_cell {
+                    // There is no focused big cell
+                    None => {
+                        self.play_at(ult_index, index);
+                    }
+                    // There is a focused big cell
+                    Some(obliged_index) => {
+                        // If player clicked on right big cell
+                        if ult_index == obliged_index {
+                            self.play_at(ult_index, index);
+                        }
+                    }
+                }
+                self.text = Text::new(format!("{}'s turn !", self.player));
+            }
+        }
+    }
+
+    fn ia_plays(&mut self) {
+        todo!()
     }
 
     fn all_occupied(&self) -> bool {
@@ -250,29 +280,7 @@ impl EventHandler for Morpion {
         while ctx.time.check_update_time(DESIRED_FPS) {
             match self.state {
                 GameState::Continue => {
-                    // If cell clicked
-                    if let Some((ult_index, index)) = self.clicked {
-                        let big_cell = self.board[ult_index];
-                        let cell = big_cell.board[index];
-                        // If big cell is free and cell is free
-                        if big_cell.state == CellState::Free && cell == CellState::Free {
-                            // Get where to play
-                            match self.focused_big_cell {
-                                // There is no focused big cell
-                                None => {
-                                    self.play(ult_index, index);
-                                }
-                                // There is a focused big cell
-                                Some(obliged_index) => {
-                                    // If player clicked on right big cell
-                                    if ult_index == obliged_index {
-                                        self.play(ult_index, index);
-                                    }
-                                }
-                            }
-                            self.text = Text::new(format!("{}'s turn !", self.player));
-                        } // else nothing
-                    }
+                    self.player_plays();
                     if self.is_won() {
                         self.state = GameState::Win(self.player.other());
                     } else if self.all_occupied() {
