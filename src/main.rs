@@ -342,6 +342,9 @@ fn ids_from_coord(x: f32, y: f32) -> Option<(usize, usize)> {
         let line = ((y - BORDER_PADDING - CELL_PADDING - ((ult_line - 1) as f32 * BIG_CELL_SIZE))
             / CELL_SIZE) as usize
             + 1;
+        if col > 3 || line > 3 { //not in a cell
+            return None;
+        }
         let coord = 3 * line - (3 - col) - 1;
         Some((ultimate_coord, coord))
     } else {
