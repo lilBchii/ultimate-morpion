@@ -5,6 +5,7 @@ use ggez::{Context, GameResult};
 use glam::Vec2;
 
 use std::{env, path};
+use std::time::Duration;
 
 mod assets;
 mod constants;
@@ -151,13 +152,55 @@ impl Morpion {
                         }
                     }
                 }
-                self.text = Text::new(format!("{}'s turn !", self.player));
             }
         }
     }
 
-    fn ia_plays(&mut self) {
-        todo!()
+    fn ai_plays(&mut self) {
+        let weights: [usize; 9] = [40, 10, 40, 10, 50, 10, 40, 10, 40];
+        ggez::timer::sleep(Duration::from_millis(500));
+
+        match self.focused_big_cell {
+            None => {
+                let mut ult_max = 0;
+                let mut ult_max_index = 0;
+                for (index, cell) in self.board.iter().enumerate() {
+                    let w = weights[index];
+                    if cell.state == CellState::Free && w > ult_max {
+                        ult_max = w;
+                        ult_max_index = index;
+                    }
+                }
+                let obliged_index = ult_max_index;
+
+                let big_cell = self.board[obliged_index];
+                let mut max = 0;
+                let mut max_index = 0;
+                for (index, cellstate) in big_cell.board.iter().enumerate() {
+                    let w = weights[index];
+                    if *cellstate == CellState::Free && w > max {
+                        max = w;
+                        max_index = index;
+                    }
+                }
+
+                self.play_at(obliged_index, max_index);
+            },
+            Some(obliged_index) => {
+                let big_cell = self.board[obliged_index];
+                let mut max = 0;
+                let mut max_index = 0;
+                for (index, cellstate) in big_cell.board.iter().enumerate() {
+                    let w = weights[index];
+                    if *cellstate == CellState::Free && w > max {
+                        max = w;
+                        max_index = index;
+                    }
+                }
+
+                self.play_at(obliged_index, max_index);
+            },
+        }
     }
 
     fn all_occupied(&self) -> bool {
@@ -205,7 +248,17 @@ impl EventHandler for Morpion {
         while ctx.time.check_update_time(DESIRED_FPS) {
             match self.state {
                 GameState::Continue => {
-                    self.player_plays();
+                    match self.player {
+                        Player::X => {
+                            self.player_plays();
+                        },
+                        Player::O => {
+                            self.ai_plays();
+                        }
+                    }
+
+                    self.text = Text::new(format!("{}'s turn !", self.player));
+
                     if self.is_won() {
                         self.state = GameState::Win(self.player.other());
                     } else if self.all_occupied() {
