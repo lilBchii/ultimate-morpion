@@ -201,6 +201,34 @@ impl Morpion {
 }
 
 impl EventHandler for Morpion {
+    fn update(&mut self, ctx: &mut Context) -> GameResult {
+        while ctx.time.check_update_time(DESIRED_FPS) {
+            match self.state {
+                GameState::Continue => {
+                    self.player_plays();
+                    if self.is_won() {
+                        self.state = GameState::Win(self.player.other());
+                    } else if self.all_occupied() {
+                        self.state = GameState::Tie;
+                    }
+                }
+                GameState::Tie => {
+                    self.text = Text::new("Tie !\nPress R to restart");
+                    if ctx.keyboard.is_key_pressed(KeyCode::R) {
+                        self.reset();
+                    }
+                }
+                GameState::Win(player) => {
+                    self.text = Text::new(format!("{} has won\nPress R to restart", player));
+                    if ctx.keyboard.is_key_pressed(KeyCode::R) {
+                        self.reset();
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = graphics::Canvas::from_frame(ctx, Color::from_rgb(30, 30, 38));
         // Grid
@@ -276,34 +304,6 @@ impl EventHandler for Morpion {
         canvas.finish(ctx)
     }
 
-    fn update(&mut self, ctx: &mut Context) -> GameResult {
-        while ctx.time.check_update_time(DESIRED_FPS) {
-            match self.state {
-                GameState::Continue => {
-                    self.player_plays();
-                    if self.is_won() {
-                        self.state = GameState::Win(self.player.other());
-                    } else if self.all_occupied() {
-                        self.state = GameState::Tie;
-                    }
-                }
-                GameState::Tie => {
-                    self.text = Text::new("Tie !\nPress R to restart");
-                    if ctx.keyboard.is_key_pressed(KeyCode::R) {
-                        self.reset();
-                    }
-                }
-                GameState::Win(player) => {
-                    self.text = Text::new(format!("{} has won\nPress R to restart", player));
-                    if ctx.keyboard.is_key_pressed(KeyCode::R) {
-                        self.reset();
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
     fn mouse_button_down_event(
         &mut self,
         _ctx: &mut Context,
@@ -368,10 +368,10 @@ fn coord_from_ids(ult_index: usize, index: usize) -> (f32, f32) {
 fn main() -> GameResult {
     let resource_dir = if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
         let mut path = path::PathBuf::from(manifest_dir);
-        path.push("ressources");
+        path.push("resources");
         path
     } else {
-        path::PathBuf::from("./ressources")
+        path::PathBuf::from("./resources")
     };
 
     let (mut ctx, events_loop) = ggez::ContextBuilder::new("ultimate-morpion", "lilBchii")
@@ -380,6 +380,6 @@ fn main() -> GameResult {
         .window_mode(ggez::conf::WindowMode::default().dimensions(SCREEN_SIZE.0, SCREEN_SIZE.1))
         .build()?;
 
-    let state = Morpion::new(&mut ctx).unwrap();
+    let state = Morpion::new(&mut ctx)?;
     event::run(ctx, events_loop, state)
 }
