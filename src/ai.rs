@@ -91,15 +91,15 @@ pub fn first_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
 }
 
 pub fn generate_children(node: &Morpion) -> Vec<Morpion> {
-    let mut child = Vec::new();
+    let mut children = Vec::new();
     for i in 0..9 {
         for j in 0..9 {
             if node.index_is_playable(i, j) {
                 let mut new_node = node.clone();
                 new_node.play_at(i, j);
-                child.push(new_node);
+                children.push(new_node);
             }
         }
     }
-    child
+    children
 }
