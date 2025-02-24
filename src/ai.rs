@@ -65,24 +65,25 @@ pub fn alpha_beta(
 }
 
 pub fn first_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
+    let dir = |player: Player| if player == maximizing_player {1} else {-1};
     let mut score: isize = 0;
     match node.state {
         GameState::Continue => {
             for big_cell_index in 0..9 {
                 match node.board.states[big_cell_index] {
-                    CellState::Occupied(player) => score += (if player == maximizing_player {1} else {-1})*50*WEIGHTS[big_cell_index],
+                    CellState::Occupied(player) => score += dir(player)*50*WEIGHTS[big_cell_index],
                     CellState::Tie => {},
                     CellState::Free => {
                         for lil_cell_index in 0..9 {
                             if let CellState::Occupied(player) = node.board.cells[big_cell_index][lil_cell_index] {
-                                score += (if player == maximizing_player {1} else {-1})*WEIGHTS[lil_cell_index];
+                                score += dir(player)*WEIGHTS[lil_cell_index];
                             }
                         }
                     }
                 }
             }
         }
-        GameState::Win(player) => score += (if player == maximizing_player {1} else {-1})*5000,
+        GameState::Win(player) => score += dir(player)*5000,
         GameState::Tie => score = 0,
     }
 
