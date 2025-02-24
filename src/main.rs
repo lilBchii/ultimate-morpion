@@ -1,12 +1,14 @@
+use ai::{alpha_beta, first_heuristic, generate_children};
 use ggez::event::{self, EventHandler, MouseButton};
 use ggez::graphics::{self, Color, Rect, Text};
 use ggez::input::keyboard::KeyCode;
 use ggez::{Context, GameResult};
 use glam::Vec2;
 
-use std::{env, path};
 use std::time::Duration;
+use std::{env, path};
 
+mod ai;
 mod assets;
 mod constants;
 
@@ -51,79 +53,85 @@ enum CellState {
     Tie,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-struct Cell {
-    board: [CellState; 9],
-    state: CellState,
+#[derive(Clone)]
+struct Board {
+    cells: [[CellState; 9]; 9],
+    states: [CellState; 9],
 }
 
-impl Cell {
-    fn new() -> Cell {
-        Cell {
-            board: [CellState::Free; 9],
-            state: CellState::Free,
+impl Board {
+    fn new() -> Self {
+        Self {
+            cells: [[CellState::Free; 9]; 9],
+            states: [CellState::Free; 9],
         }
     }
-    fn all_occupied(&self) -> bool {
-        self.board.iter().all(|cell| *cell != CellState::Free)
-    }
-    fn is_won_by(&self, last_player: Player) -> bool {
-        let player = CellState::Occupied(last_player);
-
-        (self.board[0] == player && self.board[1] == player && self.board[2] == player)
-            || (self.board[3] == player && self.board[4] == player && self.board[5] == player)
-            || (self.board[6] == player && self.board[7] == player && self.board[8] == player)
-            || (self.board[0] == player && self.board[3] == player && self.board[6] == player)
-            || (self.board[1] == player && self.board[4] == player && self.board[7] == player)
-            || (self.board[2] == player && self.board[5] == player && self.board[8] == player)
-            || (self.board[0] == player && self.board[4] == player && self.board[8] == player)
-            || (self.board[2] == player && self.board[4] == player && self.board[6] == player)
-    }
 }
 
-#[derive(Debug)]
+fn all_occupied(states: &[CellState; 9]) -> bool {
+    states
+        .iter()
+        .all(|cell_state| !matches!(cell_state, CellState::Free))
+}
+
+fn is_won_by(states: &[CellState; 9], player: Player) -> bool {
+    let player = CellState::Occupied(player);
+    (states[0] == player && states[1] == player && states[2] == player)
+        || (states[3] == player && states[4] == player && states[5] == player)
+        || (states[6] == player && states[7] == player && states[8] == player)
+        || (states[0] == player && states[3] == player && states[6] == player)
+        || (states[1] == player && states[4] == player && states[7] == player)
+        || (states[2] == player && states[5] == player && states[8] == player)
+        || (states[0] == player && states[4] == player && states[8] == player)
+        || (states[2] == player && states[4] == player && states[6] == player)
+}
+
+#[derive(Debug, PartialEq, Clone)]
 enum GameState {
     Tie,
     Win(Player),
     Continue,
 }
 
+#[derive(Clone)]
 struct Morpion {
-    board: [Cell; 9],
+    board: Board,
     state: GameState,
     player: Player,
     focused_big_cell: Option<usize>,
-    meshes: Assets,
-    text: Text,
-    clicked: Option<(usize, usize)>,
 }
 
 impl Morpion {
-    fn new(ctx: &mut Context) -> GameResult<Morpion> {
-        Ok(Morpion {
-            board: [Cell::new(); 9],
+    fn new() -> Self {
+        Self {
+            board: Board::new(),
             state: GameState::Continue,
             player: Player::X,
             focused_big_cell: None,
-            meshes: Assets::new(ctx)?,
-            text: Text::new("X begins !"),
-            clicked: None,
-        })
+        }
     }
 
-    fn play_at(&mut self, ult_index: usize, index: usize) {
+    pub fn index_is_playable(&self, ult_index: usize, index: usize) -> bool {
+        self.board.states[ult_index] == CellState::Free
+            && self.board.cells[ult_index][index] == CellState::Free
+            && (self
+                .focused_big_cell
+                .is_some_and(|obliged_index| obliged_index == ult_index)
+                || self.focused_big_cell.is_none())
+    }
+
+    pub fn play_at(&mut self, ult_index: usize, index: usize) {
         // Cell becomes occupied by player
-        self.board[ult_index].board[index] = CellState::Occupied(self.player);
-        let big_cell = self.board[ult_index];
+        self.board.cells[ult_index][index] = CellState::Occupied(self.player);
         // If big cell is won by player big cell is now occupied
-        if big_cell.is_won_by(self.player) {
-            self.board[ult_index].state = CellState::Occupied(self.player);
-        } else if big_cell.all_occupied() {
+        if is_won_by(&self.board.cells[ult_index], self.player) {
+            self.board.states[ult_index] = CellState::Occupied(self.player);
+        } else if all_occupied(&self.board.states) {
             // Else if all cells of big cell are occupied then big cell is tie
-            self.board[ult_index].state = CellState::Tie;
+            self.board.states[ult_index] = CellState::Tie;
         }
         // Check if index is free to determine next focused big cell
-        match self.board[index].state {
+        match self.board.states[index] {
             CellState::Free => self.focused_big_cell = Some(index),
             _ => self.focused_big_cell = None,
         }
@@ -131,138 +139,124 @@ impl Morpion {
         self.player = self.player.other();
     }
 
+    fn reset(&mut self) {
+        self.board = Board::new();
+        self.state = GameState::Continue;
+        self.player = Player::X;
+        self.focused_big_cell = None;
+    }
+}
+
+struct Game {
+    morpion: Morpion,
+    meshes: Assets,
+    text: Text,
+    clicked: Option<(usize, usize)>,
+}
+
+impl Game {
+    fn new(ctx: &mut Context) -> GameResult<Self> {
+        Ok(Self {
+            morpion: Morpion::new(),
+            meshes: Assets::new(ctx)?,
+            text: Text::new("X begins !"),
+            clicked: None,
+        })
+    }
+
     fn player_plays(&mut self) {
         // If cell clicked
         if let Some((ult_index, index)) = self.clicked {
-            let big_cell = self.board[ult_index];
-            let cell = big_cell.board[index];
-            // If big cell is free and cell is free
-            if big_cell.state == CellState::Free && cell == CellState::Free {
-                // Get where to play
-                match self.focused_big_cell {
-                    // There is no focused big cell
-                    None => {
-                        self.play_at(ult_index, index);
-                    }
-                    // There is a focused big cell
-                    Some(obliged_index) => {
-                        // If player clicked on right big cell
-                        if ult_index == obliged_index {
-                            self.play_at(ult_index, index);
-                        }
-                    }
-                }
+            if self.morpion.index_is_playable(ult_index, index) {
+                self.morpion.play_at(ult_index, index);
             }
         }
     }
 
     fn ai_plays(&mut self) {
-        let weights: [usize; 9] = [40, 10, 40, 10, 50, 10, 40, 10, 40];
         ggez::timer::sleep(Duration::from_millis(500));
 
-        match self.focused_big_cell {
-            None => {
-                let mut ult_max = 0;
-                let mut ult_max_index = 0;
-                for (index, cell) in self.board.iter().enumerate() {
-                    let w = weights[index];
-                    if cell.state == CellState::Free && w > ult_max {
-                        ult_max = w;
-                        ult_max_index = index;
-                    }
-                }
-                let obliged_index = ult_max_index;
-
-                let big_cell = self.board[obliged_index];
-                let mut max = 0;
-                let mut max_index = 0;
-                for (index, cellstate) in big_cell.board.iter().enumerate() {
-                    let w = weights[index];
-                    if *cellstate == CellState::Free && w > max {
-                        max = w;
-                        max_index = index;
-                    }
-                }
-
-                self.play_at(obliged_index, max_index);
-            },
-            Some(obliged_index) => {
-                let big_cell = self.board[obliged_index];
-                let mut max = 0;
-                let mut max_index = 0;
-                for (index, cellstate) in big_cell.board.iter().enumerate() {
-                    let w = weights[index];
-                    if *cellstate == CellState::Free && w > max {
-                        max = w;
-                        max_index = index;
-                    }
-                }
-
-                self.play_at(obliged_index, max_index);
-            },
+        let children = generate_children(&self.morpion);
+        let mut best_move_index = 0;
+        let mut max_score = isize::MIN;
+        for (index, child) in children.iter().enumerate() {
+            let score = alpha_beta(child, 6, isize::MIN, isize::MAX, true);
+            if score > max_score {
+                max_score = score;
+                best_move_index = index;
+            }
         }
+
+        self.morpion = children[best_move_index].clone();
+
+        // match self.morpion.focused_big_cell {
+        //     None => {
+        //         let mut ult_max = 0;
+        //         let mut ult_max_index = 0;
+        //         for i in 0..9 {
+        //             let w = weights[i];
+        //             if self.morpion.board.states[i] == CellState::Free && w > ult_max {
+        //                 ult_max = w;
+        //                 ult_max_index = i;
+        //             }
+        //         }
+        //         let obliged_index = ult_max_index;
+
+        //         let mut max = 0;
+        //         let mut max_index = 0;
+
+        //         for i in 0..9 {
+        //             let w = weights[i];
+        //             if self.morpion.board.cells[obliged_index][i] == CellState::Free && w > max {
+        //                 max = w;
+        //                 max_index = i;
+        //             }
+        //         }
+
+        //         self.morpion.play_at(obliged_index, max_index);
+        //     }
+        //     Some(obliged_index) => {
+        //         let mut max = 0;
+        //         let mut max_index = 0;
+        //         for i in 0..9 {
+        //             let w = weights[i];
+        //             if self.morpion.board.cells[obliged_index][i] == CellState::Free && w > max {
+        //                 max = w;
+        //                 max_index = i;
+        //             }
+        //         }
+
+        //         self.morpion.play_at(obliged_index, max_index);
+        //     }
+        // }
     }
 
-    fn all_occupied(&self) -> bool {
-        self.board.iter().all(|cell| cell.state != CellState::Free)
-    }
-    fn is_won(&self) -> bool {
-        let player = CellState::Occupied(self.player.other());
-
-        (self.board[0].state == player
-            && self.board[1].state == player
-            && self.board[2].state == player)
-            || (self.board[3].state == player
-                && self.board[4].state == player
-                && self.board[5].state == player)
-            || (self.board[6].state == player
-                && self.board[7].state == player
-                && self.board[8].state == player)
-            || (self.board[0].state == player
-                && self.board[3].state == player
-                && self.board[6].state == player)
-            || (self.board[1].state == player
-                && self.board[4].state == player
-                && self.board[7].state == player)
-            || (self.board[2].state == player
-                && self.board[5].state == player
-                && self.board[8].state == player)
-            || (self.board[0].state == player
-                && self.board[4].state == player
-                && self.board[8].state == player)
-            || (self.board[2].state == player
-                && self.board[4].state == player
-                && self.board[6].state == player)
-    }
     fn reset(&mut self) {
-        self.board = [Cell::new(); 9];
-        self.state = GameState::Continue;
-        self.player = Player::X;
-        self.focused_big_cell = None;
+        self.morpion.reset();
         self.text = Text::new("X begins !");
     }
 }
 
-impl EventHandler for Morpion {
+impl EventHandler for Game {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         while ctx.time.check_update_time(DESIRED_FPS) {
-            match self.state {
+            match self.morpion.state {
                 GameState::Continue => {
-                    match self.player {
+                    match self.morpion.player {
                         Player::X => {
                             self.player_plays();
-                        },
+                        }
                         Player::O => {
                             self.ai_plays();
                         }
                     }
 
-                    self.text = Text::new(format!("{}'s turn !", self.player));
+                    self.text = Text::new(format!("{}'s turn !", self.morpion.player));
 
-                    if self.is_won() {
-                        self.state = GameState::Win(self.player.other());
-                    } else if self.all_occupied() {
-                        self.state = GameState::Tie;
+                    if is_won_by(&self.morpion.board.states, self.morpion.player.other()) {
+                        self.morpion.state = GameState::Win(self.morpion.player.other());
+                    } else if all_occupied(&self.morpion.board.states) {
+                        self.morpion.state = GameState::Tie;
                     }
                 }
                 GameState::Tie => {
@@ -292,16 +286,18 @@ impl EventHandler for Morpion {
                 BORDER_PADDING + CELL_PADDING + ((i as u32 % 3) as f32) * BIG_CELL_SIZE,
                 BORDER_PADDING + CELL_PADDING + (((i - i % 3) / 3) as f32) * BIG_CELL_SIZE,
             );
-            let mesh = match self.focused_big_cell {
+            let mesh = match self.morpion.focused_big_cell {
                 Some(index) if index == i => &self.meshes.focused_grid,
-                None if self.board[i].state == CellState::Free => &self.meshes.focused_grid,
+                None if self.morpion.board.states[i] == CellState::Free => {
+                    &self.meshes.focused_grid
+                }
                 _ => &self.meshes.lil_grid,
             };
             canvas.draw(mesh, graphics::DrawParam::new().dest(dst));
         }
         // Crosses and Circles
-        for (ult_index, ult_cell) in self.board.iter().enumerate() {
-            for (index, cell) in ult_cell.board.iter().enumerate() {
+        for (ult_index, ult_cell) in self.morpion.board.cells.iter().enumerate() {
+            for (index, cell) in ult_cell.iter().enumerate() {
                 let (x, y) = coord_from_ids(ult_index, index);
                 match cell {
                     CellState::Free | CellState::Tie => {}
@@ -330,7 +326,7 @@ impl EventHandler for Morpion {
                 }
             }
             let (x, y) = coord_from_ids(ult_index, 0);
-            match ult_cell.state {
+            match self.morpion.board.states[ult_index] {
                 CellState::Free | CellState::Tie => {}
                 CellState::Occupied(Player::X) => {
                     canvas.draw(
@@ -395,7 +391,8 @@ fn ids_from_coord(x: f32, y: f32) -> Option<(usize, usize)> {
         let line = ((y - BORDER_PADDING - CELL_PADDING - ((ult_line - 1) as f32 * BIG_CELL_SIZE))
             / CELL_SIZE) as usize
             + 1;
-        if col > 3 || line > 3 { //not in a cell
+        if col > 3 || line > 3 {
+            //not in a cell
             return None;
         }
         let coord = 3 * line - (3 - col) - 1;
@@ -433,6 +430,6 @@ fn main() -> GameResult {
         .window_mode(ggez::conf::WindowMode::default().dimensions(SCREEN_SIZE.0, SCREEN_SIZE.1))
         .build()?;
 
-    let state = Morpion::new(&mut ctx)?;
+    let state = Game::new(&mut ctx)?;
     event::run(ctx, events_loop, state)
 }
