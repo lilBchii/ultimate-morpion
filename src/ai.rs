@@ -1,8 +1,10 @@
 use crate::{CellState, GameState, Morpion, Player};
 
+const WEIGHTS: [isize; 9] = [40, 10, 40, 10, 45, 10, 40, 10, 40];
+
 pub fn minimax(node: &Morpion, depth: isize, maximizing_player: Player) -> isize {
     if node.state != GameState::Continue || depth == 0 {
-        return first_heuristic(node);
+        return first_heuristic(node, maximizing_player);
     }
     if node.player == maximizing_player {
         let mut value = isize::MIN;
@@ -26,7 +28,7 @@ pub fn alpha_beta(
     maximizing_player: Player,
 ) -> isize {
     if node.state != GameState::Continue || depth == 0 {
-        return first_heuristic(node);
+        return first_heuristic(node, maximizing_player);
     }
     if node.player == maximizing_player {
         let mut value = isize::MIN;
@@ -62,39 +64,28 @@ pub fn alpha_beta(
     value
 }
 
-pub fn first_heuristic(node: &Morpion) -> isize {
-    let weights: [isize; 9] = [40, 10, 40, 10, 45, 10, 40, 10, 40];
+pub fn first_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
     let mut score: isize = 0;
     match node.state {
         GameState::Continue => {
             for big_cell_index in 0..9 {
                 match node.board.states[big_cell_index] {
-                    CellState::Occupied(player) => match player {
-                        Player::X => score += -50 * weights[big_cell_index],
-                        Player::O => score += 50 * weights[big_cell_index],
-                    },
-                    CellState::Tie => {}
+                    CellState::Occupied(player) => score += (if player == maximizing_player {1} else {-1})*50*WEIGHTS[big_cell_index],
+                    CellState::Tie => {},
                     CellState::Free => {
                         for lil_cell_index in 0..9 {
-                            if let CellState::Occupied(player) =
-                                node.board.cells[big_cell_index][lil_cell_index]
-                            {
-                                match player {
-                                    Player::X => score += -weights[lil_cell_index],
-                                    Player::O => score += weights[lil_cell_index],
-                                }
+                            if let CellState::Occupied(player) = node.board.cells[big_cell_index][lil_cell_index] {
+                                score += (if player == maximizing_player {1} else {-1})*WEIGHTS[lil_cell_index];
                             }
                         }
                     }
                 }
             }
         }
-        GameState::Win(player) => match player {
-            Player::X => score = -5000,
-            Player::O => score = 5000,
-        },
+        GameState::Win(player) => score += (if player == maximizing_player {1} else {-1})*5000,
         GameState::Tie => score = 0,
     }
+
     score
 }
 

@@ -1,4 +1,4 @@
-use ai::{alpha_beta, generate_children, minimax};
+use ai::{alpha_beta, generate_children};
 use ggez::event::{self, EventHandler, MouseButton};
 use ggez::graphics::{self, Color, Rect, Text};
 use ggez::input::keyboard::KeyCode;
@@ -180,8 +180,8 @@ impl Game {
         let mut best_move_index = 0;
         let mut max_score = isize::MIN;
         for (index, child) in children.iter().enumerate() {
-            //let score = alpha_beta(child, 6, isize::MIN, isize::MAX, true);
-            let score = minimax(child, 5, self.morpion.player);
+            let score = alpha_beta(child, 6, isize::MIN, isize::MAX, self.morpion.player);
+            //let score = minimax(child, 5, self.morpion.player);
             if score > max_score {
                 max_score = score;
                 best_move_index = index;
