@@ -7,6 +7,7 @@ use glam::Vec2;
 
 use std::time::Duration;
 use std::{env, path};
+use std::fmt::Formatter;
 
 mod ai;
 mod assets;
@@ -101,6 +102,77 @@ struct Morpion {
     focused_big_cell: Option<usize>,
 }
 
+impl std::fmt::Display for Morpion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let board = &self.board;
+        write!(
+            f,
+            "
+{}{}{} | {}{}{} | {}{}{}\n\
+{}{}{} | {}{}{} | {}{}{}\n\
+{}{}{} | {}{}{} | {}{}{}\n\
+---------------------------
+{}{}{} | {}{}{} | {}{}{}\n\
+{}{}{} | {}{}{} | {}{}{}\n\
+{}{}{} | {}{}{} | {}{}{}\n\
+---------------------------
+{}{}{} | {}{}{} | {}{}{}\n\
+{}{}{} | {}{}{} | {}{}{}\n\
+{}{}{} | {}{}{} | {}{}{}
+            ",
+            board.cells[0][0], board.cells[0][1], board.cells[0][2],
+            board.cells[1][0], board.cells[1][1], board.cells[1][2],
+            board.cells[2][0], board.cells[2][1], board.cells[2][2],
+
+            board.cells[0][3], board.cells[0][4], board.cells[0][5],
+            board.cells[1][3], board.cells[1][4], board.cells[1][5],
+            board.cells[2][3], board.cells[2][4], board.cells[2][5],
+
+            board.cells[0][6], board.cells[0][7], board.cells[0][8],
+            board.cells[1][6], board.cells[1][7], board.cells[1][8],
+            board.cells[2][6], board.cells[2][7], board.cells[2][8],
+
+            board.cells[3][0], board.cells[3][1], board.cells[3][2],
+            board.cells[4][0], board.cells[4][1], board.cells[4][2],
+            board.cells[5][0], board.cells[5][1], board.cells[5][2],
+
+            board.cells[3][3], board.cells[3][4], board.cells[3][5],
+            board.cells[4][3], board.cells[4][4], board.cells[4][5],
+            board.cells[5][3], board.cells[5][4], board.cells[5][5],
+
+            board.cells[3][6], board.cells[3][7], board.cells[3][8],
+            board.cells[4][6], board.cells[4][7], board.cells[4][8],
+            board.cells[5][6], board.cells[5][7], board.cells[5][8],
+
+            board.cells[6][0], board.cells[6][1], board.cells[0][2],
+            board.cells[7][0], board.cells[7][1], board.cells[1][2],
+            board.cells[8][0], board.cells[8][1], board.cells[2][2],
+
+            board.cells[6][3], board.cells[6][4], board.cells[6][5],
+            board.cells[7][3], board.cells[7][4], board.cells[7][5],
+            board.cells[8][3], board.cells[8][4], board.cells[8][5],
+
+            board.cells[6][6], board.cells[6][7], board.cells[6][8],
+            board.cells[7][6], board.cells[7][7], board.cells[7][8],
+            board.cells[8][6], board.cells[8][7], board.cells[8][8],
+        )
+    }
+}
+
+impl std::fmt::Display for CellState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Occupied(player) => player.to_string(),
+                Self::Free => String::from("*"),
+                _ => String::from("")
+            }
+        )
+    }
+}
+
 impl Morpion {
     fn new() -> Self {
         Self {
@@ -181,7 +253,9 @@ impl Game {
         let mut max_score = isize::MIN;
         for (index, child) in children.iter().enumerate() {
             let score = alpha_beta(child, 6, isize::MIN, isize::MAX, self.morpion.player);
-            //let score = minimax(child, 5, self.morpion.player);
+
+            println!("Child {} (score: {}) \n{}", index, score, child);
+
             if score > max_score {
                 max_score = score;
                 best_move_index = index;
