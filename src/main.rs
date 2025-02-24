@@ -1,4 +1,4 @@
-use ai::{alpha_beta, first_heuristic, generate_children};
+use ai::{alpha_beta, generate_children, minimax};
 use ggez::event::{self, EventHandler, MouseButton};
 use ggez::graphics::{self, Color, Rect, Text};
 use ggez::input::keyboard::KeyCode;
@@ -180,7 +180,8 @@ impl Game {
         let mut best_move_index = 0;
         let mut max_score = isize::MIN;
         for (index, child) in children.iter().enumerate() {
-            let score = alpha_beta(child, 6, isize::MIN, isize::MAX, true);
+            //let score = alpha_beta(child, 6, isize::MIN, isize::MAX, true);
+            let score = minimax(child, 5, true);
             if score > max_score {
                 max_score = score;
                 best_move_index = index;
@@ -188,47 +189,6 @@ impl Game {
         }
 
         self.morpion = children[best_move_index].clone();
-
-        // match self.morpion.focused_big_cell {
-        //     None => {
-        //         let mut ult_max = 0;
-        //         let mut ult_max_index = 0;
-        //         for i in 0..9 {
-        //             let w = weights[i];
-        //             if self.morpion.board.states[i] == CellState::Free && w > ult_max {
-        //                 ult_max = w;
-        //                 ult_max_index = i;
-        //             }
-        //         }
-        //         let obliged_index = ult_max_index;
-
-        //         let mut max = 0;
-        //         let mut max_index = 0;
-
-        //         for i in 0..9 {
-        //             let w = weights[i];
-        //             if self.morpion.board.cells[obliged_index][i] == CellState::Free && w > max {
-        //                 max = w;
-        //                 max_index = i;
-        //             }
-        //         }
-
-        //         self.morpion.play_at(obliged_index, max_index);
-        //     }
-        //     Some(obliged_index) => {
-        //         let mut max = 0;
-        //         let mut max_index = 0;
-        //         for i in 0..9 {
-        //             let w = weights[i];
-        //             if self.morpion.board.cells[obliged_index][i] == CellState::Free && w > max {
-        //                 max = w;
-        //                 max_index = i;
-        //             }
-        //         }
-
-        //         self.morpion.play_at(obliged_index, max_index);
-        //     }
-        // }
     }
 
     fn reset(&mut self) {

@@ -1,5 +1,23 @@
 use crate::{CellState, GameState, Morpion, Player};
 
+pub fn minimax(node: &Morpion, depth: isize, maximizing_player: bool) -> isize {
+    if node.state != GameState::Continue || depth == 0 {
+        return first_heuristic(node);
+    }
+    if maximizing_player {
+        let mut value = isize::MIN;
+        for child in generate_children(node) {
+            value = value.max(minimax(&child, depth - 1, false));
+        }
+        return value;
+    }
+    let mut value = isize::MAX;
+    for child in generate_children(node) {
+        value = value.min(minimax(&child, depth - 1, true));
+    }
+    value
+}
+
 pub fn alpha_beta(
     node: &Morpion,
     depth: isize,
