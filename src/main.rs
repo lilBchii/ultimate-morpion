@@ -181,13 +181,12 @@ impl Game {
         let mut max_score = isize::MIN;
         for (index, child) in children.iter().enumerate() {
             //let score = alpha_beta(child, 6, isize::MIN, isize::MAX, true);
-            let score = minimax(child, 5, true);
+            let score = minimax(child, 5, self.morpion.player);
             if score > max_score {
                 max_score = score;
                 best_move_index = index;
             }
         }
-
         self.morpion = children[best_move_index].clone();
     }
 

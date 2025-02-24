@@ -1,19 +1,19 @@
 use crate::{CellState, GameState, Morpion, Player};
 
-pub fn minimax(node: &Morpion, depth: isize, maximizing_player: bool) -> isize {
+pub fn minimax(node: &Morpion, depth: isize, maximizing_player: Player) -> isize {
     if node.state != GameState::Continue || depth == 0 {
         return first_heuristic(node);
     }
-    if maximizing_player {
+    if node.player == maximizing_player {
         let mut value = isize::MIN;
         for child in generate_children(node) {
-            value = value.max(minimax(&child, depth - 1, false));
+            value = value.max(minimax(&child, depth - 1, maximizing_player));
         }
         return value;
     }
     let mut value = isize::MAX;
     for child in generate_children(node) {
-        value = value.min(minimax(&child, depth - 1, true));
+        value = value.min(minimax(&child, depth - 1, maximizing_player));
     }
     value
 }
@@ -23,15 +23,21 @@ pub fn alpha_beta(
     depth: isize,
     mut alpha: isize,
     mut beta: isize,
-    maximizing_player: bool,
+    maximizing_player: Player,
 ) -> isize {
     if node.state != GameState::Continue || depth == 0 {
         return first_heuristic(node);
     }
-    if maximizing_player {
+    if node.player == maximizing_player {
         let mut value = isize::MIN;
         for child in generate_children(node) {
-            value = value.max(alpha_beta(&child, depth - 1, alpha, beta, false));
+            value = value.max(alpha_beta(
+                &child,
+                depth - 1,
+                alpha,
+                beta,
+                maximizing_player,
+            ));
             if value > beta {
                 break;
             }
@@ -41,7 +47,13 @@ pub fn alpha_beta(
     }
     let mut value = isize::MAX;
     for child in generate_children(node) {
-        value = value.min(alpha_beta(&child, depth - 1, alpha, beta, true));
+        value = value.min(alpha_beta(
+            &child,
+            depth - 1,
+            alpha,
+            beta,
+            maximizing_player,
+        ));
         if value < alpha {
             break;
         }
