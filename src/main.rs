@@ -1,388 +1,116 @@
-use ai::{alpha_beta, generate_children};
+use ggegui::egui::{self, Button, Label};
 use ggez::event::{self, EventHandler, MouseButton};
-use ggez::graphics::{self, Color, Rect, Text};
-use ggez::input::keyboard::KeyCode;
+use ggez::graphics::{self, Color, DrawParam, Drawable};
 use ggez::{Context, GameResult};
-use glam::Vec2;
 
-use std::time::Duration;
 use std::{env, path};
-use std::fmt::Formatter;
 
 mod ai;
 mod assets;
 mod constants;
+mod menu;
+mod morpion;
 
-use assets::Assets;
-use constants::{
-    BIG_CELL_SIZE, BORDER_PADDING, CELL_PADDING, CELL_SIZE, CROSS_CIRCLE_SCALE_FACTOR, DESIRED_FPS,
-    SCREEN_SIZE,
-};
+use constants::{BIG_CELL_SIZE, BORDER_PADDING, CELL_PADDING, CELL_SIZE, SCREEN_SIZE};
+use menu::Menu;
+use morpion::{CellState, Morpion, MorpionScene, Player, PlayingState};
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Player {
-    X,
-    O,
-}
-
-impl Player {
-    fn other(&self) -> Player {
-        match self {
-            Player::X => Player::O,
-            Player::O => Player::X,
-        }
-    }
-}
-
-impl std::fmt::Display for Player {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::X => "X",
-                Self::O => "O",
-            }
-        )
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum CellState {
-    Occupied(Player),
-    Free,
-    Tie,
-}
-
-#[derive(Clone)]
-struct Board {
-    cells: [[CellState; 9]; 9],
-    states: [CellState; 9],
-}
-
-impl Board {
-    fn new() -> Self {
-        Self {
-            cells: [[CellState::Free; 9]; 9],
-            states: [CellState::Free; 9],
-        }
-    }
-}
-
-fn all_occupied(states: &[CellState; 9]) -> bool {
-    states
-        .iter()
-        .all(|cell_state| !matches!(cell_state, CellState::Free))
-}
-
-fn is_won_by(states: &[CellState; 9], player: Player) -> bool {
-    let player = CellState::Occupied(player);
-    (states[0] == player && states[1] == player && states[2] == player)
-        || (states[3] == player && states[4] == player && states[5] == player)
-        || (states[6] == player && states[7] == player && states[8] == player)
-        || (states[0] == player && states[3] == player && states[6] == player)
-        || (states[1] == player && states[4] == player && states[7] == player)
-        || (states[2] == player && states[5] == player && states[8] == player)
-        || (states[0] == player && states[4] == player && states[8] == player)
-        || (states[2] == player && states[4] == player && states[6] == player)
-}
-
-#[derive(Debug, PartialEq, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 enum GameState {
-    Tie,
-    Win(Player),
-    Continue,
+    Playing(GameMode),
+    StartMenu,
+    SelectAIMenu,
 }
 
-#[derive(Clone)]
-struct Morpion {
-    board: Board,
-    state: GameState,
-    player: Player,
-    focused_big_cell: Option<usize>,
-}
-
-impl std::fmt::Display for Morpion {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let board = &self.board;
-        write!(
-            f,
-            "
-{}{}{} | {}{}{} | {}{}{}\n\
-{}{}{} | {}{}{} | {}{}{}\n\
-{}{}{} | {}{}{} | {}{}{}\n\
----------------------------
-{}{}{} | {}{}{} | {}{}{}\n\
-{}{}{} | {}{}{} | {}{}{}\n\
-{}{}{} | {}{}{} | {}{}{}\n\
----------------------------
-{}{}{} | {}{}{} | {}{}{}\n\
-{}{}{} | {}{}{} | {}{}{}\n\
-{}{}{} | {}{}{} | {}{}{}
-            ",
-            board.cells[0][0], board.cells[0][1], board.cells[0][2],
-            board.cells[1][0], board.cells[1][1], board.cells[1][2],
-            board.cells[2][0], board.cells[2][1], board.cells[2][2],
-
-            board.cells[0][3], board.cells[0][4], board.cells[0][5],
-            board.cells[1][3], board.cells[1][4], board.cells[1][5],
-            board.cells[2][3], board.cells[2][4], board.cells[2][5],
-
-            board.cells[0][6], board.cells[0][7], board.cells[0][8],
-            board.cells[1][6], board.cells[1][7], board.cells[1][8],
-            board.cells[2][6], board.cells[2][7], board.cells[2][8],
-
-            board.cells[3][0], board.cells[3][1], board.cells[3][2],
-            board.cells[4][0], board.cells[4][1], board.cells[4][2],
-            board.cells[5][0], board.cells[5][1], board.cells[5][2],
-
-            board.cells[3][3], board.cells[3][4], board.cells[3][5],
-            board.cells[4][3], board.cells[4][4], board.cells[4][5],
-            board.cells[5][3], board.cells[5][4], board.cells[5][5],
-
-            board.cells[3][6], board.cells[3][7], board.cells[3][8],
-            board.cells[4][6], board.cells[4][7], board.cells[4][8],
-            board.cells[5][6], board.cells[5][7], board.cells[5][8],
-
-            board.cells[6][0], board.cells[6][1], board.cells[0][2],
-            board.cells[7][0], board.cells[7][1], board.cells[1][2],
-            board.cells[8][0], board.cells[8][1], board.cells[2][2],
-
-            board.cells[6][3], board.cells[6][4], board.cells[6][5],
-            board.cells[7][3], board.cells[7][4], board.cells[7][5],
-            board.cells[8][3], board.cells[8][4], board.cells[8][5],
-
-            board.cells[6][6], board.cells[6][7], board.cells[6][8],
-            board.cells[7][6], board.cells[7][7], board.cells[7][8],
-            board.cells[8][6], board.cells[8][7], board.cells[8][8],
-        )
-    }
-}
-
-impl std::fmt::Display for CellState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::Occupied(player) => player.to_string(),
-                Self::Free => String::from("*"),
-                _ => String::from("")
-            }
-        )
-    }
-}
-
-impl Morpion {
-    fn new() -> Self {
-        Self {
-            board: Board::new(),
-            state: GameState::Continue,
-            player: Player::X,
-            focused_big_cell: None,
-        }
-    }
-
-    pub fn index_is_playable(&self, ult_index: usize, index: usize) -> bool {
-        self.board.states[ult_index] == CellState::Free
-            && self.board.cells[ult_index][index] == CellState::Free
-            && (self
-                .focused_big_cell
-                .is_some_and(|obliged_index| obliged_index == ult_index)
-                || self.focused_big_cell.is_none())
-    }
-
-    pub fn play_at(&mut self, ult_index: usize, index: usize) {
-        // Cell becomes occupied by player
-        self.board.cells[ult_index][index] = CellState::Occupied(self.player);
-        // If big cell is won by player big cell is now occupied
-        if is_won_by(&self.board.cells[ult_index], self.player) {
-            self.board.states[ult_index] = CellState::Occupied(self.player);
-        } else if all_occupied(&self.board.states) {
-            // Else if all cells of big cell are occupied then big cell is tie
-            self.board.states[ult_index] = CellState::Tie;
-        }
-        // Check if index is free to determine next focused big cell
-        match self.board.states[index] {
-            CellState::Free => self.focused_big_cell = Some(index),
-            _ => self.focused_big_cell = None,
-        }
-        // Change player
-        self.player = self.player.other();
-    }
-
-    fn reset(&mut self) {
-        self.board = Board::new();
-        self.state = GameState::Continue;
-        self.player = Player::X;
-        self.focused_big_cell = None;
-    }
+#[derive(PartialEq, Eq, Clone, Copy)]
+enum GameMode {
+    PvP,
+    PvAI,
+    AIvAI,
 }
 
 struct Game {
-    morpion: Morpion,
-    meshes: Assets,
-    text: Text,
-    clicked: Option<(usize, usize)>,
+    morpion_scene: MorpionScene,
+    state: GameState,
+    menu: Menu,
 }
 
 impl Game {
     fn new(ctx: &mut Context) -> GameResult<Self> {
         Ok(Self {
-            morpion: Morpion::new(),
-            meshes: Assets::new(ctx)?,
-            text: Text::new("X begins !"),
-            clicked: None,
+            morpion_scene: MorpionScene::new(ctx)?,
+            state: GameState::StartMenu,
+            menu: Menu::new(ctx),
         })
-    }
-
-    fn player_plays(&mut self) {
-        // If cell clicked
-        if let Some((ult_index, index)) = self.clicked {
-            if self.morpion.index_is_playable(ult_index, index) {
-                self.morpion.play_at(ult_index, index);
-            }
-        }
-    }
-
-    fn ai_plays(&mut self) {
-        ggez::timer::sleep(Duration::from_millis(500));
-
-        let children = generate_children(&self.morpion);
-        let mut best_move_index = 0;
-        let mut max_score = isize::MIN;
-        for (index, child) in children.iter().enumerate() {
-            let score = alpha_beta(child, 6, isize::MIN, isize::MAX, self.morpion.player);
-
-            println!("Child {} (score: {}) \n{}", index, score, child);
-
-            if score > max_score {
-                max_score = score;
-                best_move_index = index;
-            }
-        }
-        self.morpion = children[best_move_index].clone();
-    }
-
-    fn reset(&mut self) {
-        self.morpion.reset();
-        self.text = Text::new("X begins !");
     }
 }
 
 impl EventHandler for Game {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
-        while ctx.time.check_update_time(DESIRED_FPS) {
-            match self.morpion.state {
-                GameState::Continue => {
-                    match self.morpion.player {
-                        Player::X => {
-                            self.player_plays();
-                        }
-                        Player::O => {
-                            self.ai_plays();
-                        }
-                    }
+        match self.state {
+            GameState::Playing(game_mode) => {
+                self.morpion_scene.update(ctx, &mut self.state, &game_mode);
+            }
+            GameState::StartMenu => {
+                let gui_ctx = self.menu.gui.ctx();
+                let play_btn = Button::new("PvP");
+                let ai_btn = Button::new("PvAI");
 
-                    self.text = Text::new(format!("{}'s turn !", self.morpion.player));
+                egui::CentralPanel::default().show(&gui_ctx, |ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.add_sized([150.0, 50.0], Label::new("Ultimate Morpion"));
+                        if ui.add_sized([150.0, 50.0], play_btn).clicked() {
+                            self.morpion_scene.morpion.reset();
+                            self.state = GameState::Playing(GameMode::PvP);
+                        }
+                        if ui.add_sized([150.0, 50.0], ai_btn).clicked() {
+                            self.state = GameState::SelectAIMenu;
+                        }
+                    });
+                });
+                self.menu.gui.update(ctx);
+            }
+            GameState::SelectAIMenu => {
+                let gui_ctx = self.menu.gui.ctx();
+                let easy_btn = Button::new("Easy");
+                let medium_btn = Button::new("Medium");
+                let hard_btn = Button::new("Hard");
+                let back_btn = Button::new("Back");
 
-                    if is_won_by(&self.morpion.board.states, self.morpion.player.other()) {
-                        self.morpion.state = GameState::Win(self.morpion.player.other());
-                    } else if all_occupied(&self.morpion.board.states) {
-                        self.morpion.state = GameState::Tie;
-                    }
-                }
-                GameState::Tie => {
-                    self.text = Text::new("Tie !\nPress R to restart");
-                    if ctx.keyboard.is_key_pressed(KeyCode::R) {
-                        self.reset();
-                    }
-                }
-                GameState::Win(player) => {
-                    self.text = Text::new(format!("{} has won\nPress R to restart", player));
-                    if ctx.keyboard.is_key_pressed(KeyCode::R) {
-                        self.reset();
-                    }
-                }
+                egui::CentralPanel::default().show(&gui_ctx, |ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.add_sized([150.0, 50.0], Label::new("Ultimate Morpion"));
+                        if ui.add_sized([150.0, 50.0], easy_btn).clicked() {
+                            self.morpion_scene.morpion.reset();
+                            self.state = GameState::Playing(GameMode::PvAI);
+                        }
+                        if ui.add_sized([150.0, 50.0], medium_btn).clicked() {
+                            self.morpion_scene.morpion.reset();
+                            self.state = GameState::Playing(GameMode::PvAI);
+                        }
+                        if ui.add_sized([150.0, 50.0], hard_btn).clicked() {
+                            self.morpion_scene.morpion.reset();
+                            self.state = GameState::Playing(GameMode::PvAI);
+                        }
+                        if ui.add_sized([100.0, 30.0], back_btn).clicked() {
+                            self.morpion_scene.morpion.reset();
+                            self.state = GameState::StartMenu;
+                        }
+                    });
+                });
+                self.menu.gui.update(ctx);
             }
         }
+
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = graphics::Canvas::from_frame(ctx, Color::from_rgb(30, 30, 38));
-        // Grid
-        canvas.draw(&self.meshes.big_grid, graphics::DrawParam::default());
-        // Grids
-        for i in 0..9 {
-            let dst = Vec2::new(
-                BORDER_PADDING + CELL_PADDING + ((i as u32 % 3) as f32) * BIG_CELL_SIZE,
-                BORDER_PADDING + CELL_PADDING + (((i - i % 3) / 3) as f32) * BIG_CELL_SIZE,
-            );
-            let mesh = match self.morpion.focused_big_cell {
-                Some(index) if index == i => &self.meshes.focused_grid,
-                None if self.morpion.board.states[i] == CellState::Free => {
-                    &self.meshes.focused_grid
-                }
-                _ => &self.meshes.lil_grid,
-            };
-            canvas.draw(mesh, graphics::DrawParam::new().dest(dst));
+        match self.state {
+            GameState::Playing(_) => self.morpion_scene.draw(&mut canvas, DrawParam::new()),
+            _ => self.menu.draw(&mut canvas, DrawParam::new()),
         }
-        // Crosses and Circles
-        for (ult_index, ult_cell) in self.morpion.board.cells.iter().enumerate() {
-            for (index, cell) in ult_cell.iter().enumerate() {
-                let (x, y) = coord_from_ids(ult_index, index);
-                match cell {
-                    CellState::Free | CellState::Tie => {}
-                    CellState::Occupied(Player::X) => {
-                        canvas.draw(
-                            &self.meshes.cross245,
-                            graphics::DrawParam::new().dest_rect(Rect::new(
-                                x,
-                                y,
-                                CROSS_CIRCLE_SCALE_FACTOR,
-                                CROSS_CIRCLE_SCALE_FACTOR,
-                            )),
-                        );
-                    }
-                    CellState::Occupied(Player::O) => {
-                        canvas.draw(
-                            &self.meshes.circle245,
-                            graphics::DrawParam::new().dest_rect(Rect::new(
-                                x,
-                                y,
-                                CROSS_CIRCLE_SCALE_FACTOR,
-                                CROSS_CIRCLE_SCALE_FACTOR,
-                            )),
-                        );
-                    }
-                }
-            }
-            let (x, y) = coord_from_ids(ult_index, 0);
-            match self.morpion.board.states[ult_index] {
-                CellState::Free | CellState::Tie => {}
-                CellState::Occupied(Player::X) => {
-                    canvas.draw(
-                        &self.meshes.cross245,
-                        graphics::DrawParam::new()
-                            .dest(Vec2::new(x - CELL_PADDING, y - CELL_PADDING)),
-                    );
-                }
-                CellState::Occupied(Player::O) => {
-                    canvas.draw(
-                        &self.meshes.circle245,
-                        graphics::DrawParam::new()
-                            .dest(Vec2::new(x - CELL_PADDING, y - CELL_PADDING)),
-                    );
-                }
-            }
-        }
-        // Text
-        canvas.draw(
-            &self.text,
-            graphics::DrawParam::from([BORDER_PADDING, SCREEN_SIZE.1 - BORDER_PADDING])
-                .color(Color::WHITE),
-        );
         canvas.finish(ctx)
     }
 
@@ -394,7 +122,7 @@ impl EventHandler for Game {
         y: f32,
     ) -> GameResult {
         if let Some((ult_index, index)) = ids_from_coord(x, y) {
-            self.clicked = Some((ult_index, index));
+            self.morpion_scene.clicked = Some((ult_index, index));
         }
         Ok(())
     }
@@ -406,7 +134,7 @@ impl EventHandler for Game {
         _x: f32,
         _y: f32,
     ) -> GameResult {
-        self.clicked = None;
+        self.morpion_scene.clicked = None;
         Ok(())
     }
 }

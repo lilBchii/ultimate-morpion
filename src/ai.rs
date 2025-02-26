@@ -1,10 +1,10 @@
-use crate::{CellState, GameState, Morpion, Player};
+use crate::{CellState, Morpion, Player, PlayingState};
 
 const WEIGHTS: [isize; 9] = [40, 10, 40, 10, 45, 10, 40, 10, 40];
 
 pub fn minimax(node: &Morpion, depth: isize, maximizing_player: Player) -> isize {
-    if node.state != GameState::Continue || depth == 0 {
-        return first_heuristic(node, maximizing_player);
+    if node.state != PlayingState::Continue || depth == 0 {
+        return first_heuristic(node);
     }
     if node.player == maximizing_player {
         let mut value = isize::MIN;
@@ -27,8 +27,8 @@ pub fn alpha_beta(
     mut beta: isize,
     maximizing_player: Player,
 ) -> isize {
-    if node.state != GameState::Continue || depth == 0 {
-        return first_heuristic(node, maximizing_player);
+    if node.state != PlayingState::Continue || depth == 0 {
+        return first_heuristic(node);
     }
     if node.player == maximizing_player {
         let mut value = isize::MIN;
@@ -64,27 +64,28 @@ pub fn alpha_beta(
     value
 }
 
-pub fn first_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
-    let dir = |player: Player| if player == maximizing_player {1} else {-1};
+pub fn first_heuristic(node: &Morpion) -> isize {
     let mut score: isize = 0;
     match node.state {
-        GameState::Continue => {
+        PlayingState::Continue => {
             for big_cell_index in 0..9 {
                 match node.board.states[big_cell_index] {
-                    CellState::Occupied(player) => score += dir(player)*50*WEIGHTS[big_cell_index],
-                    CellState::Tie => {},
+                    CellState::Occupied(player) => score += 50 * WEIGHTS[big_cell_index],
+                    CellState::Tie => {}
                     CellState::Free => {
                         for lil_cell_index in 0..9 {
-                            if let CellState::Occupied(player) = node.board.cells[big_cell_index][lil_cell_index] {
-                                score += dir(player)*WEIGHTS[lil_cell_index];
+                            if let CellState::Occupied(player) =
+                                node.board.cells[big_cell_index][lil_cell_index]
+                            {
+                                score += WEIGHTS[lil_cell_index];
                             }
                         }
                     }
                 }
             }
         }
-        GameState::Win(player) => score += dir(player)*5000,
-        GameState::Tie => score = 0,
+        PlayingState::Win(_) => score += 5000,
+        PlayingState::Tie => score = 0,
     }
 
     score
