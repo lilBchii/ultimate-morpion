@@ -19,7 +19,7 @@ use morpion::{CellState, Morpion, MorpionScene, Player, PlayingState};
 enum GameState {
     Playing(GameMode),
     StartMenu,
-    SelectAIMenu,
+    SelectAIMenu(bool),
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -53,45 +53,69 @@ impl EventHandler for Game {
             }
             GameState::StartMenu => {
                 let gui_ctx = self.menu.gui.ctx();
-                let play_btn = Button::new("PvP");
-                let ai_btn = Button::new("PvAI");
+                let p_p_btn = Button::new("PvP");
+                let p_ai_btn = Button::new("PvAI");
+                let ai_ai_btn = Button::new("AIvAI");
 
                 egui::CentralPanel::default().show(&gui_ctx, |ui| {
                     ui.vertical_centered(|ui| {
                         ui.add_sized([150.0, 50.0], Label::new("Ultimate Morpion"));
-                        if ui.add_sized([150.0, 50.0], play_btn).clicked() {
+                        if ui.add_sized([150.0, 50.0], p_p_btn).clicked() {
                             self.morpion_scene.morpion.reset();
                             self.state = GameState::Playing(GameMode::PvP);
                         }
-                        if ui.add_sized([150.0, 50.0], ai_btn).clicked() {
-                            self.state = GameState::SelectAIMenu;
+                        if ui.add_sized([150.0, 50.0], p_ai_btn).clicked() {
+                            self.state = GameState::SelectAIMenu(false);
+                        }
+                        if ui.add_sized([150.0, 50.0], ai_ai_btn).clicked() {
+                            self.state = GameState::SelectAIMenu(true);
                         }
                     });
                 });
                 self.menu.gui.update(ctx);
             }
-            GameState::SelectAIMenu => {
+            GameState::SelectAIMenu(multi_ai) => {
                 let gui_ctx = self.menu.gui.ctx();
-                let easy_btn = Button::new("Easy");
-                let medium_btn = Button::new("Medium");
-                let hard_btn = Button::new("Hard");
+                let easy_btn_1 = Button::new("Easy");
+                let medium_btn_1 = Button::new("Medium");
+                let hard_btn_1 = Button::new("Hard");
+                let easy_btn_2 = Button::new("Easy");
+                let medium_btn_2 = Button::new("Medium");
+                let hard_btn_2 = Button::new("Hard");
                 let back_btn = Button::new("Back");
 
                 egui::CentralPanel::default().show(&gui_ctx, |ui| {
                     ui.vertical_centered(|ui| {
                         ui.add_sized([150.0, 50.0], Label::new("Ultimate Morpion"));
-                        if ui.add_sized([150.0, 50.0], easy_btn).clicked() {
-                            self.morpion_scene.morpion.reset();
-                            self.state = GameState::Playing(GameMode::PvAI);
+
+                        if !multi_ai {
+                            if ui.add_sized([150.0, 50.0], easy_btn_1).clicked() {
+                                self.morpion_scene.morpion.reset();
+                                self.state = GameState::Playing(GameMode::PvAI);
+                            }
+                            if ui.add_sized([150.0, 50.0], medium_btn_1).clicked() {
+                                self.morpion_scene.morpion.reset();
+                                self.state = GameState::Playing(GameMode::PvAI);
+                            }
+                            if ui.add_sized([150.0, 50.0], hard_btn_1).clicked() {
+                                self.morpion_scene.morpion.reset();
+                                self.state = GameState::Playing(GameMode::PvAI);
+                            }
+                        } else {
+                            if ui.add_sized([150.0, 50.0], easy_btn_2).clicked() {
+                                self.morpion_scene.morpion.reset();
+                                self.state = GameState::Playing(GameMode::AIvAI);
+                            }
+                            if ui.add_sized([150.0, 50.0], medium_btn_2).clicked() {
+                                self.morpion_scene.morpion.reset();
+                                self.state = GameState::Playing(GameMode::AIvAI);
+                            }
+                            if ui.add_sized([150.0, 50.0], hard_btn_2).clicked() {
+                                self.morpion_scene.morpion.reset();
+                                self.state = GameState::Playing(GameMode::AIvAI);
+                            }
                         }
-                        if ui.add_sized([150.0, 50.0], medium_btn).clicked() {
-                            self.morpion_scene.morpion.reset();
-                            self.state = GameState::Playing(GameMode::PvAI);
-                        }
-                        if ui.add_sized([150.0, 50.0], hard_btn).clicked() {
-                            self.morpion_scene.morpion.reset();
-                            self.state = GameState::Playing(GameMode::PvAI);
-                        }
+
                         if ui.add_sized([100.0, 30.0], back_btn).clicked() {
                             self.morpion_scene.morpion.reset();
                             self.state = GameState::StartMenu;
