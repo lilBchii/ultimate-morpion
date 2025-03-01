@@ -5,7 +5,7 @@ use ggez::input::keyboard::KeyCode;
 use ggez::{Context, GameResult};
 use glam::Vec2;
 
-use crate::ai::{alpha_beta, generate_children};
+use crate::ai::{alpha_beta, first_heuristic, generate_children};
 use crate::{assets::Assets, coord_from_ids};
 use crate::{constants::*, GameMode, GameState};
 
@@ -292,9 +292,16 @@ impl MorpionScene {
         let mut best_move_index = 0;
         let mut max_score = isize::MIN;
         for (index, child) in children.iter().enumerate() {
-            let score = alpha_beta(child, 6, isize::MIN, isize::MAX, self.morpion.player);
+            let score = alpha_beta(
+                child,
+                6,
+                isize::MIN,
+                isize::MAX,
+                self.morpion.player,
+                &first_heuristic,
+            );
 
-            println!("Child {} (score: {}) \n{}", index, score, child);
+            //println!("Child {} (score: {}) \n{}", index, score, child);
 
             if score > max_score {
                 max_score = score;
@@ -302,6 +309,7 @@ impl MorpionScene {
             }
         }
         self.morpion = children[best_move_index].clone();
+        println!("{}", self.morpion);
     }
     pub fn update(&mut self, ctx: &mut Context, state: &mut GameState, game_mode: &GameMode) {
         while ctx.time.check_update_time(DESIRED_FPS) {

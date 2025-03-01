@@ -2,20 +2,25 @@ use crate::{CellState, Morpion, Player, PlayingState};
 
 const WEIGHTS: [isize; 9] = [40, 10, 40, 10, 45, 10, 40, 10, 40];
 
-pub fn minimax(node: &Morpion, depth: isize, maximizing_player: Player) -> isize {
+pub fn minimax(
+    node: &Morpion,
+    depth: isize,
+    maximizing_player: Player,
+    heuristic: &impl Fn(&Morpion, Player) -> isize,
+) -> isize {
     if node.state != PlayingState::Continue || depth == 0 {
-        return first_heuristic(node, maximizing_player);
+        return heuristic(node, maximizing_player);
     }
     if node.player == maximizing_player {
         let mut value = isize::MIN;
         for child in generate_children(node) {
-            value = value.max(minimax(&child, depth - 1, maximizing_player));
+            value = value.max(minimax(&child, depth - 1, maximizing_player, heuristic));
         }
         return value;
     }
     let mut value = isize::MAX;
     for child in generate_children(node) {
-        value = value.min(minimax(&child, depth - 1, maximizing_player));
+        value = value.min(minimax(&child, depth - 1, maximizing_player, heuristic));
     }
     value
 }
@@ -26,9 +31,10 @@ pub fn alpha_beta(
     mut alpha: isize,
     mut beta: isize,
     maximizing_player: Player,
+    heuristic: &impl Fn(&Morpion, Player) -> isize,
 ) -> isize {
     if node.state != PlayingState::Continue || depth == 0 {
-        return first_heuristic(node, maximizing_player);
+        return heuristic(node, maximizing_player);
     }
     if node.player == maximizing_player {
         let mut value = isize::MIN;
@@ -39,6 +45,7 @@ pub fn alpha_beta(
                 alpha,
                 beta,
                 maximizing_player,
+                heuristic,
             ));
             if value > beta {
                 break;
@@ -55,6 +62,7 @@ pub fn alpha_beta(
             alpha,
             beta,
             maximizing_player,
+            heuristic,
         ));
         if value < alpha {
             break;
