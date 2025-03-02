@@ -247,6 +247,27 @@ impl Morpion {
         self.player = self.player.other();
     }
 
+    pub fn check_playing_state(&self) -> PlayingState {
+        if is_won_by(&self.board.states, self.player.other()) {
+            PlayingState::Win(self.player.other())
+        } else if all_occupied(&self.board.states)
+            || self
+                .focused_big_cell
+                .is_some_and(|ult_index| all_occupied(&self.board.cells[ult_index]))
+            || self
+                .board
+                .states
+                .iter()
+                .zip(self.board.cells.iter())
+                .filter(|(big_cell_state, _)| **big_cell_state == CellState::Free)
+                .all(|(_, lil_cell_state)| all_occupied(lil_cell_state))
+        {
+            PlayingState::Tie
+        } else {
+            PlayingState::Continue
+        }
+    }
+
     pub fn reset(&mut self) {
         self.board = Board::new();
         self.player = Player::X;
@@ -289,27 +310,29 @@ impl MorpionScene {
         ggez::timer::sleep(Duration::from_millis(500));
 
         let children = generate_children(&self.morpion);
-        let mut best_move_index = 0;
-        let mut max_score = isize::MIN;
-        for (index, child) in children.iter().enumerate() {
-            let score = alpha_beta(
-                child,
-                6,
-                isize::MIN,
-                isize::MAX,
-                self.morpion.player,
-                &first_heuristic,
-            );
+        if !children.is_empty() {
+            let mut best_move_index = 0;
+            let mut max_score = isize::MIN;
+            for (index, child) in children.iter().enumerate() {
+                let score = alpha_beta(
+                    child,
+                    6,
+                    isize::MIN,
+                    isize::MAX,
+                    self.morpion.player,
+                    &first_heuristic,
+                );
 
-            //println!("Child {} (score: {}) \n{}", index, score, child);
+                //println!("Child {} (score: {}) \n{}", index, score, child);
 
-            if score > max_score {
-                max_score = score;
-                best_move_index = index;
+                if score > max_score {
+                    max_score = score;
+                    best_move_index = index;
+                }
             }
+            self.morpion = children[best_move_index].clone();
+            println!("{}", self.morpion);
         }
-        self.morpion = children[best_move_index].clone();
-        println!("{}", self.morpion);
     }
     pub fn update(&mut self, ctx: &mut Context, state: &mut GameState, game_mode: &GameMode) {
         while ctx.time.check_update_time(DESIRED_FPS) {
@@ -332,11 +355,7 @@ impl MorpionScene {
 
                     self.text = Text::new(format!("{}'s turn !", self.morpion.player));
 
-                    if is_won_by(&self.morpion.board.states, self.morpion.player.other()) {
-                        self.morpion.state = PlayingState::Win(self.morpion.player.other());
-                    } else if all_occupied(&self.morpion.board.states) {
-                        self.morpion.state = PlayingState::Tie;
-                    }
+                    self.morpion.state = self.morpion.check_playing_state();
 
                     if ctx.keyboard.is_key_pressed(KeyCode::Q) {
                         *state = GameState::StartMenu;
