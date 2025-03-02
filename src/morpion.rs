@@ -271,6 +271,7 @@ impl Morpion {
     pub fn reset(&mut self) {
         self.board = Board::new();
         self.player = Player::X;
+        self.state = PlayingState::Continue;
         self.focused_big_cell = None;
     }
 }
@@ -307,8 +308,7 @@ impl MorpionScene {
     }
 
     fn ai_plays(&mut self) {
-        ggez::timer::sleep(Duration::from_millis(500));
-
+        //ggez::timer::sleep(Duration::from_millis(500));
         let children = generate_children(&self.morpion);
         if !children.is_empty() {
             let mut best_move_index = 0;
@@ -334,6 +334,7 @@ impl MorpionScene {
             println!("{}", self.morpion);
         }
     }
+
     pub fn update(&mut self, ctx: &mut Context, state: &mut GameState, game_mode: &GameMode) {
         while ctx.time.check_update_time(DESIRED_FPS) {
             match self.morpion.state {
@@ -367,6 +368,7 @@ impl MorpionScene {
                         self.reset();
                     }
                     if ctx.keyboard.is_key_pressed(KeyCode::Q) {
+                        self.reset();
                         *state = GameState::StartMenu;
                     }
                 }
@@ -379,6 +381,7 @@ impl MorpionScene {
                         self.reset();
                     }
                     if ctx.keyboard.is_key_pressed(KeyCode::Q) {
+                        self.reset();
                         *state = GameState::StartMenu;
                     }
                 }
