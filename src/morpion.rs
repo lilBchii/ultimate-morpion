@@ -365,6 +365,7 @@ impl MorpionScene {
 
                     if ctx.keyboard.is_key_pressed(KeyCode::Q) {
                         *state = GameState::StartMenu;
+                        self.reset();
                     }
                 }
                 PlayingState::Tie => {

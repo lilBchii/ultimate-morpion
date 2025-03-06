@@ -59,7 +59,6 @@ impl EventHandler for Game {
                     ui.vertical_centered(|ui| {
                         ui.add_sized([150.0, 50.0], Label::new("Ultimate Morpion"));
                         if ui.add_sized([150.0, 50.0], Button::new("PvP")).clicked() {
-                            self.morpion_scene.morpion.reset();
                             self.state = GameState::Playing(GameMode::PvP);
                         }
                         if ui.add_sized([150.0, 50.0], Button::new("PvAI")).clicked() {
@@ -81,15 +80,12 @@ impl EventHandler for Game {
 
                         if !multi_ai {
                             if ui.add_sized([150.0, 50.0], Button::new("Easy")).clicked() {
-                                self.morpion_scene.morpion.reset();
                                 self.state = GameState::Playing(GameMode::PvAI(AILevel::Easy));
                             }
                             if ui.add_sized([150.0, 50.0], Button::new("Medium")).clicked() {
-                                self.morpion_scene.morpion.reset();
                                 self.state = GameState::Playing(GameMode::PvAI(AILevel::Medium));
                             }
-                            if ui.add_sized([150.0, 50.0], Button::new("Easy")).clicked() {
-                                self.morpion_scene.morpion.reset();
+                            if ui.add_sized([150.0, 50.0], Button::new("Hard")).clicked() {
                                 self.state = GameState::Playing(GameMode::PvAI(AILevel::Hard));
                             }
                         } else {
@@ -185,7 +181,6 @@ impl EventHandler for Game {
                         }
 
                         if ui.add_sized([100.0, 30.0], Button::new("Back")).clicked() {
-                            self.morpion_scene.morpion.reset();
                             self.state = GameState::StartMenu;
                         }
                     });
