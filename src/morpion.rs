@@ -5,11 +5,7 @@ use ggez::input::keyboard::KeyCode;
 use ggez::{Context, GameResult};
 use glam::Vec2;
 
-<<<<<<< HEAD
-use crate::ai::{alpha_beta, first_heuristic, generate_children, AILevel};
-=======
-use crate::ai::{alpha_beta, first_heuristic, generate_children, second_heuristic};
->>>>>>> a8617a7604404ba3d49db74d5bec0703b0077089
+use crate::ai::{alpha_beta, first_heuristic, generate_children, second_heuristic, AILevel};
 use crate::{assets::Assets, coord_from_ids};
 use crate::{constants::*, GameMode, GameState};
 
@@ -325,15 +321,11 @@ impl MorpionScene {
                     isize::MIN,
                     isize::MAX,
                     self.morpion.player,
-<<<<<<< HEAD
                     match ai_level {
                         AILevel::Easy => &first_heuristic,
-                        AILevel::Medium => &first_heuristic,
+                        AILevel::Medium => &second_heuristic,
                         AILevel::Hard => &first_heuristic,
                     },
-=======
-                    &second_heuristic,
->>>>>>> a8617a7604404ba3d49db74d5bec0703b0077089
                 );
 
                 //println!("Child {} (score: {}) \n{}", index, score, child);
