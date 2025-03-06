@@ -5,7 +5,11 @@ use ggez::input::keyboard::KeyCode;
 use ggez::{Context, GameResult};
 use glam::Vec2;
 
+<<<<<<< HEAD
 use crate::ai::{alpha_beta, first_heuristic, generate_children, AILevel};
+=======
+use crate::ai::{alpha_beta, first_heuristic, generate_children, second_heuristic};
+>>>>>>> a8617a7604404ba3d49db74d5bec0703b0077089
 use crate::{assets::Assets, coord_from_ids};
 use crate::{constants::*, GameMode, GameState};
 
@@ -180,13 +184,13 @@ impl std::fmt::Display for Morpion {
             board.cells[5][8],
             board.cells[6][0],
             board.cells[6][1],
-            board.cells[0][2],
+            board.cells[6][2],
             board.cells[7][0],
             board.cells[7][1],
-            board.cells[1][2],
+            board.cells[7][2],
             board.cells[8][0],
             board.cells[8][1],
-            board.cells[2][2],
+            board.cells[8][2],
             board.cells[6][3],
             board.cells[6][4],
             board.cells[6][5],
@@ -245,6 +249,7 @@ impl Morpion {
         }
         // Change player
         self.player = self.player.other();
+        self.state = self.check_playing_state();
     }
 
     pub fn check_playing_state(&self) -> PlayingState {
@@ -320,11 +325,15 @@ impl MorpionScene {
                     isize::MIN,
                     isize::MAX,
                     self.morpion.player,
+<<<<<<< HEAD
                     match ai_level {
                         AILevel::Easy => &first_heuristic,
                         AILevel::Medium => &first_heuristic,
                         AILevel::Hard => &first_heuristic,
                     },
+=======
+                    &second_heuristic,
+>>>>>>> a8617a7604404ba3d49db74d5bec0703b0077089
                 );
 
                 //println!("Child {} (score: {}) \n{}", index, score, child);
@@ -335,7 +344,7 @@ impl MorpionScene {
                 }
             }
             self.morpion = children[best_move_index].clone();
-            println!("{}", self.morpion);
+            println!("Best: {}", self.morpion);
         }
     }
 

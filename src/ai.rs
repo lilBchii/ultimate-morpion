@@ -117,9 +117,85 @@ pub fn first_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
             }
         }
         PlayingState::Win(player) => score += dir(player) * 5000,
-        PlayingState::Tie => score = 0,
+        PlayingState::Tie => {},
     }
 
+    score
+}
+
+pub fn second_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
+    let dir = |player: Player| if player == maximizing_player { 1 } else { -1 };
+    let mut score: isize = 0;
+    match node.state {
+        PlayingState::Continue => {
+            score += evaluate_winning_sequence(&node.board.states, maximizing_player);
+            for big_cell_index in 0..9 {
+                match node.board.states[big_cell_index] {
+                    CellState::Occupied(player) => {
+                        score += dir(player) * 5;
+                        if big_cell_index == 4 { score += dir(player) * 10; }
+                        else if big_cell_index == 0 || big_cell_index == 2 || big_cell_index == 6 || big_cell_index == 8 {
+                            score += dir(player) * 3;
+                        }
+                    }
+                    CellState::Free => {
+                        score += evaluate_winning_sequence(&node.board.cells[big_cell_index], maximizing_player)/2;
+                        for lil_cell_index in 0..9 {
+                            if let CellState::Occupied(player)
+                                = node.board.cells[big_cell_index][lil_cell_index] {
+                                if lil_cell_index == 4 { score += dir(player) * 3; }
+                                if big_cell_index == 4 { score += dir(player) * 3; }
+                            }
+                        }
+                    }
+                    CellState::Tie => {}
+                }
+            }
+        },
+        PlayingState::Win(player) => { score += dir(player) * 10000 },
+        PlayingState::Tie => {},
+    }
+
+    score
+}
+
+pub fn evaluate_winning_sequence(states: &[CellState; 9], maximizing_player: Player) -> isize {
+    let dir = |player: Player| if player == maximizing_player { 1 } else { -1 };
+    let mut score: isize = 0;
+    let mut diag1_score: isize = 0;
+    let mut diag2_score: isize = 0;
+    for row in 0..3 {
+        let mut row_score = 0;
+        let mut col_score = 0;
+        for col in 0..3 {
+            if let CellState::Occupied(player) = states[row * 3 + col] {
+                row_score += dir(player);
+            }
+            if let CellState::Occupied(player) = states[col * 3 + row] {
+                col_score += dir(player);
+            }
+            if row + col == 2 {
+                if let CellState::Occupied(player) = states[row * 3 + col] {
+                    diag2_score += dir(player);
+                }
+            }
+        }
+        if let CellState::Occupied(player) = states[row*4] {
+            diag1_score += dir(player);
+        }
+        if row_score%2 == 0 {
+            score += row_score * 2;
+        }
+        if col_score%2 == 0 {
+            score += col_score * 2;
+        }
+    }
+    if diag1_score%2 == 0 {
+        score += diag1_score * 2;
+    }
+    if diag2_score%2 == 0 {
+        score += diag2_score * 2;
+    }
     score
 }
 
