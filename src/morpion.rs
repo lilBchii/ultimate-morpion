@@ -5,7 +5,7 @@ use ggez::input::keyboard::KeyCode;
 use ggez::{Context, GameResult};
 use glam::Vec2;
 
-use crate::ai::{alpha_beta, first_heuristic, generate_children};
+use crate::ai::{alpha_beta, first_heuristic, generate_children, AILevel};
 use crate::{assets::Assets, coord_from_ids};
 use crate::{constants::*, GameMode, GameState};
 
@@ -307,7 +307,7 @@ impl MorpionScene {
         }
     }
 
-    fn ai_plays(&mut self) {
+    fn ai_plays(&mut self, ai_level: &AILevel) {
         //ggez::timer::sleep(Duration::from_millis(500));
         let children = generate_children(&self.morpion);
         if !children.is_empty() {
@@ -320,7 +320,11 @@ impl MorpionScene {
                     isize::MIN,
                     isize::MAX,
                     self.morpion.player,
-                    &first_heuristic,
+                    match ai_level {
+                        AILevel::Easy => &first_heuristic,
+                        AILevel::Medium => &first_heuristic,
+                        AILevel::Hard => &first_heuristic,
+                    },
                 );
 
                 //println!("Child {} (score: {}) \n{}", index, score, child);
@@ -340,17 +344,17 @@ impl MorpionScene {
             match self.morpion.state {
                 PlayingState::Continue => {
                     match game_mode {
-                        GameMode::PvAI => match self.morpion.player {
+                        GameMode::PvAI(o) => match self.morpion.player {
                             Player::X => self.player_plays(),
-                            Player::O => self.ai_plays(),
+                            Player::O => self.ai_plays(o),
                         },
                         GameMode::PvP => match self.morpion.player {
                             Player::X => self.player_plays(),
                             Player::O => self.player_plays(),
                         },
-                        GameMode::AIvAI => match self.morpion.player {
-                            Player::X => self.ai_plays(),
-                            Player::O => self.ai_plays(),
+                        GameMode::AIvAI(x, o) => match self.morpion.player {
+                            Player::X => self.ai_plays(x),
+                            Player::O => self.ai_plays(o),
                         },
                     };
 

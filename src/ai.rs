@@ -2,6 +2,27 @@ use crate::{CellState, Morpion, Player, PlayingState};
 
 const WEIGHTS: [isize; 9] = [40, 10, 40, 10, 45, 10, 40, 10, 40];
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum AILevel {
+    Easy,
+    Medium,
+    Hard,
+}
+
+impl std::fmt::Display for AILevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Easy => "Easy",
+                Self::Medium => "Medium",
+                Self::Hard => "Hard",
+            }
+        )
+    }
+}
+
 pub fn minimax(
     node: &Morpion,
     depth: isize,

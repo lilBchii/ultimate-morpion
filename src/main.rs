@@ -11,6 +11,7 @@ mod constants;
 mod menu;
 mod morpion;
 
+use ai::AILevel;
 use constants::{BIG_CELL_SIZE, BORDER_PADDING, CELL_PADDING, CELL_SIZE, SCREEN_SIZE};
 use menu::Menu;
 use morpion::{CellState, Morpion, MorpionScene, Player, PlayingState};
@@ -25,8 +26,8 @@ enum GameState {
 #[derive(PartialEq, Eq, Clone, Copy)]
 enum GameMode {
     PvP,
-    PvAI,
-    AIvAI,
+    PvAI(AILevel),
+    AIvAI(AILevel, AILevel),
 }
 
 struct Game {
@@ -53,21 +54,18 @@ impl EventHandler for Game {
             }
             GameState::StartMenu => {
                 let gui_ctx = self.menu.gui.ctx();
-                let p_p_btn = Button::new("PvP");
-                let p_ai_btn = Button::new("PvAI");
-                let ai_ai_btn = Button::new("AIvAI");
 
                 egui::CentralPanel::default().show(&gui_ctx, |ui| {
                     ui.vertical_centered(|ui| {
                         ui.add_sized([150.0, 50.0], Label::new("Ultimate Morpion"));
-                        if ui.add_sized([150.0, 50.0], p_p_btn).clicked() {
+                        if ui.add_sized([150.0, 50.0], Button::new("PvP")).clicked() {
                             self.morpion_scene.morpion.reset();
                             self.state = GameState::Playing(GameMode::PvP);
                         }
-                        if ui.add_sized([150.0, 50.0], p_ai_btn).clicked() {
+                        if ui.add_sized([150.0, 50.0], Button::new("PvAI")).clicked() {
                             self.state = GameState::SelectAIMenu(false);
                         }
-                        if ui.add_sized([150.0, 50.0], ai_ai_btn).clicked() {
+                        if ui.add_sized([150.0, 50.0], Button::new("AIvAI")).clicked() {
                             self.state = GameState::SelectAIMenu(true);
                         }
                     });
@@ -76,47 +74,117 @@ impl EventHandler for Game {
             }
             GameState::SelectAIMenu(multi_ai) => {
                 let gui_ctx = self.menu.gui.ctx();
-                let easy_btn_1 = Button::new("Easy");
-                let medium_btn_1 = Button::new("Medium");
-                let hard_btn_1 = Button::new("Hard");
-                let easy_btn_2 = Button::new("Easy");
-                let medium_btn_2 = Button::new("Medium");
-                let hard_btn_2 = Button::new("Hard");
-                let back_btn = Button::new("Back");
 
                 egui::CentralPanel::default().show(&gui_ctx, |ui| {
                     ui.vertical_centered(|ui| {
                         ui.add_sized([150.0, 50.0], Label::new("Ultimate Morpion"));
 
                         if !multi_ai {
-                            if ui.add_sized([150.0, 50.0], easy_btn_1).clicked() {
+                            if ui.add_sized([150.0, 50.0], Button::new("Easy")).clicked() {
                                 self.morpion_scene.morpion.reset();
-                                self.state = GameState::Playing(GameMode::PvAI);
+                                self.state = GameState::Playing(GameMode::PvAI(AILevel::Easy));
                             }
-                            if ui.add_sized([150.0, 50.0], medium_btn_1).clicked() {
+                            if ui.add_sized([150.0, 50.0], Button::new("Medium")).clicked() {
                                 self.morpion_scene.morpion.reset();
-                                self.state = GameState::Playing(GameMode::PvAI);
+                                self.state = GameState::Playing(GameMode::PvAI(AILevel::Medium));
                             }
-                            if ui.add_sized([150.0, 50.0], hard_btn_1).clicked() {
+                            if ui.add_sized([150.0, 50.0], Button::new("Easy")).clicked() {
                                 self.morpion_scene.morpion.reset();
-                                self.state = GameState::Playing(GameMode::PvAI);
+                                self.state = GameState::Playing(GameMode::PvAI(AILevel::Hard));
                             }
                         } else {
-                            if ui.add_sized([150.0, 50.0], easy_btn_2).clicked() {
-                                self.morpion_scene.morpion.reset();
-                                self.state = GameState::Playing(GameMode::AIvAI);
-                            }
-                            if ui.add_sized([150.0, 50.0], medium_btn_2).clicked() {
-                                self.morpion_scene.morpion.reset();
-                                self.state = GameState::Playing(GameMode::AIvAI);
-                            }
-                            if ui.add_sized([150.0, 50.0], hard_btn_2).clicked() {
-                                self.morpion_scene.morpion.reset();
-                                self.state = GameState::Playing(GameMode::AIvAI);
-                            }
+                            ui.horizontal(|ui| {
+                                ui.vertical(|ui| {
+                                    if ui
+                                        .add_sized([150.0, 50.0], Button::new("Easy vs Medium"))
+                                        .clicked()
+                                    {
+                                        self.state = GameState::Playing(GameMode::AIvAI(
+                                            AILevel::Easy,
+                                            AILevel::Medium,
+                                        ));
+                                    }
+                                    if ui
+                                        .add_sized([150.0, 50.0], Button::new("Easy vs Hard"))
+                                        .clicked()
+                                    {
+                                        self.state = GameState::Playing(GameMode::AIvAI(
+                                            AILevel::Easy,
+                                            AILevel::Hard,
+                                        ));
+                                    }
+                                    if ui
+                                        .add_sized([150.0, 50.0], Button::new("Medium vs Hard"))
+                                        .clicked()
+                                    {
+                                        self.state = GameState::Playing(GameMode::AIvAI(
+                                            AILevel::Medium,
+                                            AILevel::Hard,
+                                        ));
+                                    }
+                                });
+                                ui.vertical(|ui| {
+                                    if ui
+                                        .add_sized([150.0, 50.0], Button::new("Medium vs Easy"))
+                                        .clicked()
+                                    {
+                                        self.state = GameState::Playing(GameMode::AIvAI(
+                                            AILevel::Medium,
+                                            AILevel::Easy,
+                                        ));
+                                    }
+                                    if ui
+                                        .add_sized([150.0, 50.0], Button::new("Hard vs Easy"))
+                                        .clicked()
+                                    {
+                                        self.state = GameState::Playing(GameMode::AIvAI(
+                                            AILevel::Hard,
+                                            AILevel::Easy,
+                                        ));
+                                    }
+                                    if ui
+                                        .add_sized([150.0, 50.0], Button::new("Hard vs Medium"))
+                                        .clicked()
+                                    {
+                                        self.state = GameState::Playing(GameMode::AIvAI(
+                                            AILevel::Hard,
+                                            AILevel::Medium,
+                                        ));
+                                    }
+                                });
+                                ui.vertical(|ui| {
+                                    if ui
+                                        .add_sized([150.0, 50.0], Button::new("Easy vs Easy"))
+                                        .clicked()
+                                    {
+                                        self.state = GameState::Playing(GameMode::AIvAI(
+                                            AILevel::Easy,
+                                            AILevel::Easy,
+                                        ));
+                                    }
+                                    if ui
+                                        .add_sized([150.0, 50.0], Button::new("Medium vs Medium"))
+                                        .clicked()
+                                    {
+                                        self.state = GameState::Playing(GameMode::AIvAI(
+                                            AILevel::Medium,
+                                            AILevel::Medium,
+                                        ));
+                                    }
+                                    if ui
+                                        .add_sized([150.0, 50.0], Button::new("Hard vs Hard"))
+                                        .clicked()
+                                    {
+                                        self.state = GameState::Playing(GameMode::AIvAI(
+                                            AILevel::Hard,
+                                            AILevel::Hard,
+                                        ));
+                                    }
+                                });
+                            });
                         }
 
-                        if ui.add_sized([100.0, 30.0], back_btn).clicked() {
+                        if ui.add_sized([100.0, 30.0], Button::new("Back")).clicked() {
                             self.morpion_scene.morpion.reset();
                             self.state = GameState::StartMenu;
                         }
@@ -125,7 +193,6 @@ impl EventHandler for Game {
                 self.menu.gui.update(ctx);
             }
         }
-
         Ok(())
     }
 
