@@ -1,26 +1,14 @@
 use crate::{CellState, Morpion, Player, PlayingState};
+use rand::{self, Rng};
 
 const WEIGHTS: [isize; 9] = [40, 10, 40, 10, 45, 10, 40, 10, 40];
+const WINNING_WEIGHT: isize = 10000;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum AILevel {
     Easy,
     Medium,
     Hard,
-}
-
-impl std::fmt::Display for AILevel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::Easy => "Easy",
-                Self::Medium => "Medium",
-                Self::Hard => "Hard",
-            }
-        )
-    }
 }
 
 pub fn minimax(
@@ -93,15 +81,22 @@ pub fn alpha_beta(
     value
 }
 
+fn dir(actual_player: Player, maximizing_player: Player) -> isize {
+    if actual_player == maximizing_player {
+        1
+    } else {
+        -1
+    }
+}
+
 pub fn first_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
-    let dir = |player: Player| if player == maximizing_player { 1 } else { -1 };
     let mut score: isize = 0;
     match node.state {
         PlayingState::Continue => {
             for big_cell_index in 0..9 {
                 match node.board.states[big_cell_index] {
                     CellState::Occupied(player) => {
-                        score += dir(player) * 50 * WEIGHTS[big_cell_index]
+                        score += dir(player, maximizing_player) * 50 * WEIGHTS[big_cell_index]
                     }
                     CellState::Tie => {}
                     CellState::Free => {
@@ -109,14 +104,14 @@ pub fn first_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
                             if let CellState::Occupied(player) =
                                 node.board.cells[big_cell_index][lil_cell_index]
                             {
-                                score += dir(player) * WEIGHTS[lil_cell_index];
+                                score += dir(player, maximizing_player) * WEIGHTS[lil_cell_index];
                             }
                         }
                     }
                 }
             }
         }
-        PlayingState::Win(player) => score += dir(player) * 5000,
+        PlayingState::Win(player) => score += dir(player, maximizing_player) * WINNING_WEIGHT,
         PlayingState::Tie => {}
     }
 
@@ -124,39 +119,40 @@ pub fn first_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
 }
 
 pub fn second_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
-    let dir = |player: Player| if player == maximizing_player { 1 } else { -1 };
     let mut score: isize = 0;
     match node.state {
         PlayingState::Continue => {
-            score += evaluate_winning_sequence(&node.board.states, maximizing_player);
+            score += evaluate_winning_sequence(&node.board.states, maximizing_player) * 2;
             for big_cell_index in 0..9 {
                 match node.board.states[big_cell_index] {
                     CellState::Occupied(player) => {
-                        score += dir(player) * 5;
+                        let dir = dir(player, maximizing_player);
+                        score += dir * 5;
                         if big_cell_index == 4 {
-                            score += dir(player) * 10;
+                            score += dir * 10;
                         } else if big_cell_index == 0
                             || big_cell_index == 2
                             || big_cell_index == 6
                             || big_cell_index == 8
                         {
-                            score += dir(player) * 3;
+                            score += dir * 3;
                         }
                     }
                     CellState::Free => {
                         score += evaluate_winning_sequence(
                             &node.board.cells[big_cell_index],
                             maximizing_player,
-                        ) / 2;
+                        );
                         for lil_cell_index in 0..9 {
                             if let CellState::Occupied(player) =
                                 node.board.cells[big_cell_index][lil_cell_index]
                             {
+                                let dir = dir(player, maximizing_player);
                                 if lil_cell_index == 4 {
-                                    score += dir(player) * 3;
+                                    score += dir * 3;
                                 }
                                 if big_cell_index == 4 {
-                                    score += dir(player) * 3;
+                                    score += dir * 3;
                                 }
                             }
                         }
@@ -165,15 +161,23 @@ pub fn second_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
                 }
             }
         }
-        PlayingState::Win(player) => score += dir(player) * 10000,
+        PlayingState::Win(player) => score += dir(player, maximizing_player) * WINNING_WEIGHT,
         PlayingState::Tie => {}
     }
 
     score
 }
 
+// Travel a morpion grid searching for a winning sequence.
+// A winning sequence is when a player has marked two aligned cells by row, column or diagonal:
+// X |  | X
+// ---------
+// O |  |
+// ---------
+// O |  |
+// In this exemple, X has a winning sequence but not O.
+// The function attributes a score of 2 for one winning sequence. The winning sequences are cumulated.
 pub fn evaluate_winning_sequence(states: &[CellState; 9], maximizing_player: Player) -> isize {
-    let dir = |player: Player| if player == maximizing_player { 1 } else { -1 };
     let mut score: isize = 0;
     let mut diag1_score: isize = 0;
     let mut diag2_score: isize = 0;
@@ -182,32 +186,32 @@ pub fn evaluate_winning_sequence(states: &[CellState; 9], maximizing_player: Pla
         let mut col_score = 0;
         for col in 0..3 {
             if let CellState::Occupied(player) = states[row * 3 + col] {
-                row_score += dir(player);
+                row_score += dir(player, maximizing_player);
             }
             if let CellState::Occupied(player) = states[col * 3 + row] {
-                col_score += dir(player);
+                col_score += dir(player, maximizing_player);
             }
             if row + col == 2 {
                 if let CellState::Occupied(player) = states[row * 3 + col] {
-                    diag2_score += dir(player);
+                    diag2_score += dir(player, maximizing_player);
                 }
             }
         }
         if let CellState::Occupied(player) = states[row * 4] {
-            diag1_score += dir(player);
+            diag1_score += dir(player, maximizing_player);
         }
         if row_score % 2 == 0 {
-            score += row_score * 2;
+            score += row_score;
         }
         if col_score % 2 == 0 {
-            score += col_score * 2;
+            score += col_score;
         }
     }
     if diag1_score % 2 == 0 {
-        score += diag1_score * 2;
+        score += diag1_score;
     }
     if diag2_score % 2 == 0 {
-        score += diag2_score * 2;
+        score += diag2_score;
     }
     score
 }
@@ -224,4 +228,9 @@ pub fn generate_children(node: &Morpion) -> Vec<Morpion> {
         }
     }
     children
+}
+
+pub fn noise(range: i32) -> isize {
+    let mut rng = rand::rng();
+    rng.random_range(-range..range) as isize
 }

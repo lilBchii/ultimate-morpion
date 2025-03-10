@@ -5,7 +5,7 @@ use ggez::input::keyboard::KeyCode;
 use ggez::{Context, GameResult};
 use glam::Vec2;
 
-use crate::ai::{alpha_beta, first_heuristic, generate_children, second_heuristic, AILevel};
+use crate::ai::{alpha_beta, first_heuristic, generate_children, noise, second_heuristic, AILevel};
 use crate::{assets::Assets, coord_from_ids};
 use crate::{constants::*, GameMode, GameState};
 
@@ -282,6 +282,7 @@ pub struct MorpionScene {
     assets: Assets,
     text: Text,
     pub clicked: Option<(usize, usize)>,
+    turn: usize,
 }
 
 impl MorpionScene {
@@ -291,11 +292,13 @@ impl MorpionScene {
             assets: Assets::new(ctx)?,
             text: Text::new("X begins !"),
             clicked: None,
+            turn: 1,
         })
     }
 
     pub fn reset(&mut self) {
         self.morpion.reset();
+        self.turn = 1;
         self.text = Text::new("X begins !");
     }
 
@@ -304,6 +307,7 @@ impl MorpionScene {
         if let Some((ult_index, index)) = self.clicked {
             if self.morpion.index_is_playable(ult_index, index) {
                 self.morpion.play_at(ult_index, index);
+                self.turn += 1;
             }
         }
     }
@@ -311,13 +315,14 @@ impl MorpionScene {
     fn ai_plays(&mut self, ai_level: &AILevel) {
         //ggez::timer::sleep(Duration::from_millis(500));
         let children = generate_children(&self.morpion);
+        let depth = 6;
         if !children.is_empty() {
             let mut best_move_index = 0;
             let mut max_score = isize::MIN;
             for (index, child) in children.iter().enumerate() {
-                let score = alpha_beta(
+                let mut score = alpha_beta(
                     child,
-                    6,
+                    depth,
                     isize::MIN,
                     isize::MAX,
                     self.morpion.player,
@@ -327,8 +332,9 @@ impl MorpionScene {
                         AILevel::Hard => &first_heuristic,
                     },
                 );
+                score += score * 10 + noise(2);
 
-                //println!("Child {} (score: {}) \n{}", index, score, child);
+                println!("Child {} (score: {}) \n{}", index, score, child);
 
                 if score > max_score {
                     max_score = score;
@@ -336,7 +342,8 @@ impl MorpionScene {
                 }
             }
             self.morpion = children[best_move_index].clone();
-            println!("Best: {}", self.morpion);
+            self.turn += 1;
+            println!("Best: {} \nDepth: {}", self.morpion, depth);
         }
     }
 

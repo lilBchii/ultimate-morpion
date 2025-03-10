@@ -9,3 +9,4 @@ edition = "2021"
 ggegui = "0.4.0"
 ggez = { version = "0.9.3", features = ["multithread-image-decoding"] }
 glam = "0.24.2"
+rand = "0.9.0"
