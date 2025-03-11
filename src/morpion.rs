@@ -1,5 +1,7 @@
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::thread;
+use std::thread::JoinHandle;
 use std::time::Duration;
-
 use ggez::graphics::{Color, DrawParam, Drawable, Rect, Text};
 use ggez::input::keyboard::KeyCode;
 use ggez::{Context, GameResult};
@@ -286,6 +288,13 @@ pub struct MorpionScene {
     text: Text,
     pub clicked: Option<(usize, usize)>,
     turn: usize,
+    ai_tx: Option<Sender<AIMessage>>,
+    ai_rx: Option<Receiver<AIMessage>>,
+    ai_thread: Option<JoinHandle<()>>,
+}
+
+enum AIMessage {
+    Move(Morpion),
 }
 
 impl MorpionScene {
@@ -296,6 +305,9 @@ impl MorpionScene {
             text: Text::new("X begins !"),
             clicked: None,
             turn: 1,
+            ai_tx: None,
+            ai_rx: None,
+            ai_thread: None,
         })
     }
 
@@ -363,9 +375,61 @@ impl MorpionScene {
                             Player::X => self.player_plays(),
                             Player::O => self.player_plays(),
                         },
-                        GameMode::AIvAI(x, o) => match self.morpion.player {
-                            Player::X => self.ai_plays(x),
-                            Player::O => self.ai_plays(o),
+                        GameMode::AIvAI(x, o) => {
+                            //check if a thread is running
+                            if let Some(ref rx) = self.ai_rx {
+                                if let Ok(AIMessage::Move(new_state)) = rx.try_recv() {
+                                    self.morpion = new_state;
+                                    self.turn += 1;
+                                    //reset mpsc
+                                    self.ai_tx = None;
+                                    self.ai_rx = None;
+                                    self.ai_thread = None;
+                                }
+                            } //no thread is running
+                            else {
+                                //we can compute the next AI move with alpha-beta
+                                let current_state = self.morpion.clone();
+                                let ai_level = if self.morpion.player == Player::X
+                                                    { x.clone() }
+                                                    else { o.clone() }; //clone since we use it in the thread
+                                //mpsc channel
+                                let (tx, rx) = channel();
+                                self.ai_tx = Some(tx.clone());
+                                self.ai_rx = Some(rx);
+
+                                //spawn the thread
+                                self.ai_thread = Some(thread::spawn(move || {
+                                    //we can sleep if it's too fast, but it doesn't seem necessary:
+                                    //thread::sleep(Duration::from_secs(1));
+                                    let children = generate_children(&current_state);
+                                    let depth = 6;
+                                    let mut best_move_index = 0;
+                                    let mut max_score = isize::MIN;
+                                    for (index, child) in children.iter().enumerate() {
+                                        let mut score = alpha_beta(
+                                            child,
+                                            depth,
+                                            isize::MIN,
+                                            isize::MAX,
+                                            current_state.player,
+                                            match ai_level {
+                                                AILevel::Easy => corner_heuristic,
+                                                AILevel::Medium => center_heuristic,
+                                                AILevel::Hard => everywhere_heuristic,
+                                            },
+                                        );
+                                        score += score * 10 + noise(2);
+                                        if score > max_score {
+                                            max_score = score;
+                                            best_move_index = index;
+                                        }
+                                    }
+                                    let new_state = children[best_move_index].clone();
+                                    //send AI move with the mpsc Sender
+                                    tx.send(AIMessage::Move(new_state)).unwrap();
+                                }));
+                            }
                         },
                     };
 
