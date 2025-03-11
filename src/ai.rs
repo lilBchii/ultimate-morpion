@@ -1,7 +1,8 @@
 use crate::{CellState, Morpion, Player, PlayingState};
 use rand::{self, Rng};
 
-const WEIGHTS: [isize; 9] = [40, 10, 40, 10, 45, 10, 40, 10, 40];
+const WEIGHTS_CENTER: [isize; 9] = [40, 10, 40, 10, 45, 10, 40, 10, 40];
+const WEIGHTS_CORNER: [isize; 9] = [45, 10, 45, 10, 15, 10, 45, 10, 45];
 const WINNING_WEIGHT: isize = 10000;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -43,7 +44,7 @@ pub fn alpha_beta(
     heuristic: &dyn Fn(&Morpion, Player) -> isize,
 ) -> isize {
     if node.state != PlayingState::Continue || depth == 0 {
-        return heuristic(node, maximizing_player)*(depth+1);
+        return heuristic(node, maximizing_player) * (depth + 1);
     }
     if node.player == maximizing_player {
         let mut value = isize::MIN;
@@ -89,14 +90,15 @@ fn dir(actual_player: Player, maximizing_player: Player) -> isize {
     }
 }
 
-pub fn first_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
+pub fn center_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
     let mut score: isize = 0;
     match node.state {
         PlayingState::Continue => {
             for big_cell_index in 0..9 {
                 match node.board.states[big_cell_index] {
                     CellState::Occupied(player) => {
-                        score += dir(player, maximizing_player) * 50 * WEIGHTS[big_cell_index]
+                        score +=
+                            dir(player, maximizing_player) * 50 * WEIGHTS_CENTER[big_cell_index]
                     }
                     CellState::Tie => {}
                     CellState::Free => {
@@ -104,7 +106,8 @@ pub fn first_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
                             if let CellState::Occupied(player) =
                                 node.board.cells[big_cell_index][lil_cell_index]
                             {
-                                score += dir(player, maximizing_player) * WEIGHTS[lil_cell_index];
+                                score +=
+                                    dir(player, maximizing_player) * WEIGHTS_CENTER[lil_cell_index];
                             }
                         }
                     }
@@ -118,8 +121,92 @@ pub fn first_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
     score
 }
 
-pub fn second_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
+pub fn winning_sequence_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
     let mut score: isize = 0;
+    match node.state {
+        PlayingState::Continue => {
+            score += evaluate_winning_sequence(&node.board.states, maximizing_player) * 2;
+            for big_cell_index in 0..9 {
+                match node.board.states[big_cell_index] {
+                    CellState::Occupied(player) => {
+                        let dir = dir(player, maximizing_player);
+                        score += dir * 5;
+                        if big_cell_index == 4 {
+                            score += dir * 10;
+                        } else if big_cell_index == 0
+                            || big_cell_index == 2
+                            || big_cell_index == 6
+                            || big_cell_index == 8
+                        {
+                            score += dir * 3;
+                        }
+                    }
+                    CellState::Free => {
+                        score += evaluate_winning_sequence(
+                            &node.board.cells[big_cell_index],
+                            maximizing_player,
+                        );
+                        for lil_cell_index in 0..9 {
+                            if let CellState::Occupied(player) =
+                                node.board.cells[big_cell_index][lil_cell_index]
+                            {
+                                let dir = dir(player, maximizing_player);
+                                if lil_cell_index == 4 {
+                                    score += dir * 3;
+                                }
+                                if big_cell_index == 4 {
+                                    score += dir * 3;
+                                }
+                            }
+                        }
+                    }
+                    CellState::Tie => {}
+                }
+            }
+        }
+        PlayingState::Win(player) => score += dir(player, maximizing_player) * WINNING_WEIGHT,
+        PlayingState::Tie => {}
+    }
+
+    score
+}
+
+pub fn corner_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
+    let mut score: isize = 0;
+    match node.state {
+        PlayingState::Continue => {
+            for big_cell_index in 0..9 {
+                match node.board.states[big_cell_index] {
+                    CellState::Occupied(player) => {
+                        score +=
+                            dir(player, maximizing_player) * 50 * WEIGHTS_CORNER[big_cell_index]
+                    }
+                    CellState::Tie => {}
+                    CellState::Free => {
+                        for lil_cell_index in 0..9 {
+                            if let CellState::Occupied(player) =
+                                node.board.cells[big_cell_index][lil_cell_index]
+                            {
+                                score +=
+                                    dir(player, maximizing_player) * WEIGHTS_CORNER[lil_cell_index];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        PlayingState::Win(player) => score += dir(player, maximizing_player) * WINNING_WEIGHT,
+        PlayingState::Tie => {}
+    }
+
+    score
+}
+
+pub fn everywhere_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
+    let mut score: isize = 0;
+    if node.focused_big_cell.is_none() {
+        score += dir(node.player, maximizing_player) * 2
+    }
     match node.state {
         PlayingState::Continue => {
             score += evaluate_winning_sequence(&node.board.states, maximizing_player) * 2;

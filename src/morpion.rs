@@ -5,7 +5,10 @@ use ggez::input::keyboard::KeyCode;
 use ggez::{Context, GameResult};
 use glam::Vec2;
 
-use crate::ai::{alpha_beta, first_heuristic, generate_children, noise, second_heuristic, AILevel};
+use crate::ai::{
+    alpha_beta, center_heuristic, corner_heuristic, everywhere_heuristic, generate_children, noise,
+    winning_sequence_heuristic, AILevel,
+};
 use crate::{assets::Assets, coord_from_ids};
 use crate::{constants::*, GameMode, GameState};
 
@@ -327,14 +330,14 @@ impl MorpionScene {
                     isize::MAX,
                     self.morpion.player,
                     match ai_level {
-                        AILevel::Easy => &first_heuristic,
-                        AILevel::Medium => &second_heuristic,
-                        AILevel::Hard => &first_heuristic,
+                        AILevel::Easy => &corner_heuristic,
+                        AILevel::Medium => &center_heuristic,
+                        AILevel::Hard => &everywhere_heuristic,
                     },
                 );
                 score += score * 10 + noise(2);
 
-                println!("Child {} (score: {}) \n{}", index, score, child);
+                //println!("Child {} (score: {}) \n{}", index, score, child);
 
                 if score > max_score {
                     max_score = score;
@@ -343,7 +346,7 @@ impl MorpionScene {
             }
             self.morpion = children[best_move_index].clone();
             self.turn += 1;
-            println!("Best: {} \nDepth: {}", self.morpion, depth);
+            //println!("Best: {} \nDepth: {}", self.morpion, depth);
         }
     }
 
