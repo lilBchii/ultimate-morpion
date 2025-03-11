@@ -41,7 +41,7 @@ pub fn alpha_beta(
     mut alpha: isize,
     mut beta: isize,
     maximizing_player: Player,
-    heuristic: &dyn Fn(&Morpion, Player) -> isize,
+    heuristic: fn(&Morpion, Player) -> isize,
 ) -> isize {
     if node.state != PlayingState::Continue || depth == 0 {
         return heuristic(node, maximizing_player) * (depth + 1);

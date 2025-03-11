@@ -330,9 +330,9 @@ impl MorpionScene {
                     isize::MAX,
                     self.morpion.player,
                     match ai_level {
-                        AILevel::Easy => &corner_heuristic,
-                        AILevel::Medium => &center_heuristic,
-                        AILevel::Hard => &everywhere_heuristic,
+                        AILevel::Easy => corner_heuristic,
+                        AILevel::Medium => center_heuristic,
+                        AILevel::Hard => everywhere_heuristic,
                     },
                 );
                 score += score * 10 + noise(2);
