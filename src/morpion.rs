@@ -315,6 +315,9 @@ impl MorpionScene {
         self.morpion.reset();
         self.turn = 1;
         self.text = Text::new("X begins !");
+        self.ai_tx = None;
+        self.ai_rx = None;
+        self.ai_thread = None;
     }
 
     fn player_plays(&mut self) {
@@ -427,7 +430,7 @@ impl MorpionScene {
                                     }
                                     let new_state = children[best_move_index].clone();
                                     //send AI move with the mpsc Sender
-                                    tx.send(AIMessage::Move(new_state)).unwrap();
+                                    tx.send(AIMessage::Move(new_state)).unwrap_or_else(|_| println!("channel killed"));
                                 }));
                             }
                         },
