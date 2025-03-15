@@ -50,7 +50,7 @@ impl EventHandler for Game {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         match self.state {
             GameState::Playing(game_mode) => {
-                self.morpion_scene.update(ctx, &mut self.state, &game_mode);
+                self.morpion_scene.update(ctx, &mut self.state, game_mode);
             }
             GameState::StartMenu => {
                 let gui_ctx = self.menu.gui.ctx();
