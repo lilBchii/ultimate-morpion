@@ -347,22 +347,35 @@ impl MorpionScene {
                 //we can sleep if it's too fast, but it doesn't seem necessary:
                 //thread::sleep(Duration::from_secs(1));
                 let children = generate_children(&current_state);
-                let depth = 6;
                 let mut best_move_index = 0;
                 let mut max_score = isize::MIN;
                 for (index, child) in children.iter().enumerate() {
-                    let mut score = alpha_beta(
-                        child,
-                        depth,
-                        isize::MIN,
-                        isize::MAX,
-                        current_state.player,
-                        match ai_level {
-                            AILevel::Easy => corner_heuristic,
-                            AILevel::Medium => center_heuristic,
-                            AILevel::Hard => everywhere_heuristic,
-                        },
-                    );
+                    let mut score = match ai_level {
+                        AILevel::Easy => alpha_beta(
+                            child,
+                            6,
+                            isize::MIN,
+                            isize::MAX,
+                            current_state.player,
+                            corner_heuristic,
+                        ),
+                        AILevel::Medium => alpha_beta(
+                            child,
+                            7,
+                            isize::MIN,
+                            isize::MAX,
+                            current_state.player,
+                            center_heuristic,
+                        ),
+                        AILevel::Hard => alpha_beta(
+                            child,
+                            7,
+                            isize::MIN,
+                            isize::MAX,
+                            current_state.player,
+                            everywhere_heuristic,
+                        ),
+                    };
                     score += score * 10 + noise(2);
                     if score > max_score {
                         max_score = score;
