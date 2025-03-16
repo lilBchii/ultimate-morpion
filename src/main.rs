@@ -1,7 +1,7 @@
 use ggegui::egui::{self, Button, Label};
 use ggez::event::{self, EventHandler, MouseButton};
 use ggez::graphics::{self, Color, DrawParam, Drawable};
-use ggez::{Context, GameResult};
+use ggez::{Context, GameError, GameResult};
 
 use std::{env, path};
 
@@ -10,11 +10,13 @@ mod assets;
 mod constants;
 mod menu;
 mod morpion;
+mod fight;
 
 use ai::AILevel;
 use constants::{BIG_CELL_SIZE, BORDER_PADDING, CELL_PADDING, CELL_SIZE, SCREEN_SIZE};
 use menu::Menu;
 use morpion::{CellState, Morpion, MorpionScene, Player, PlayingState};
+use crate::fight::launch_fights;
 
 #[derive(PartialEq, Eq, Clone)]
 enum GameState {
@@ -263,20 +265,41 @@ fn coord_from_ids(ult_index: usize, index: usize) -> (f32, f32) {
 }
 
 fn main() -> GameResult {
-    let resource_dir = if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
-        let mut path = path::PathBuf::from(manifest_dir);
-        path.push("resources");
-        path
-    } else {
-        path::PathBuf::from("./resources")
-    };
+    let args: Vec<String> = env::args().collect();
+    let args_len = args.len();
+    if args_len == 5 {
+        let arg_type = &args[1];
+        let ai_level_x = &args[2];
+        let ai_level_o = &args[3];
+        let fight_number = &args[4];
 
-    let (mut ctx, events_loop) = ggez::ContextBuilder::new("ultimate-morpion", "lilBchii")
-        .add_resource_path(resource_dir)
-        .window_setup(ggez::conf::WindowSetup::default().title("ultimate-morpion"))
-        .window_mode(ggez::conf::WindowMode::default().dimensions(SCREEN_SIZE.0, SCREEN_SIZE.1))
-        .build()?;
+        match arg_type.as_str() {
+            "-f" => {
+                let x_level = AILevel::from_str(ai_level_x).unwrap_or(AILevel::Easy);
+                let o_level = AILevel::from_str(ai_level_o).unwrap_or(AILevel::Easy);
+                launch_fights(x_level, o_level, fight_number.parse::<usize>().unwrap_or(50));
+            },
+            _ => { panic!("unknown argument: {}", arg_type); }
+        }
 
-    let state = Game::new(&mut ctx)?;
-    event::run(ctx, events_loop, state)
+        return Ok(());
+    } else if args_len == 1 {
+        let resource_dir = if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+            let mut path = path::PathBuf::from(manifest_dir);
+            path.push("resources");
+            path
+        } else {
+            path::PathBuf::from("./resources")
+        };
+
+        let (mut ctx, events_loop) = ggez::ContextBuilder::new("ultimate-morpion", "lilBchii")
+            .add_resource_path(resource_dir)
+            .window_setup(ggez::conf::WindowSetup::default().title("ultimate-morpion"))
+            .window_mode(ggez::conf::WindowMode::default().dimensions(SCREEN_SIZE.0, SCREEN_SIZE.1))
+            .build()?;
+
+        let state = Game::new(&mut ctx)?;
+        event::run(ctx, events_loop, state)
+    }
+    Err(GameError::CustomError("can't launch window: invalid arguments".to_string()))
 }

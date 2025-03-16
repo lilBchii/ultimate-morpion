@@ -5,11 +5,22 @@ const WEIGHTS_CENTER: [isize; 9] = [40, 10, 40, 10, 45, 10, 40, 10, 40];
 const WEIGHTS_CORNER: [isize; 9] = [45, 10, 45, 10, 15, 10, 45, 10, 45];
 const WINNING_WEIGHT: isize = 10000;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum AILevel {
     Easy,
     Medium,
     Hard,
+}
+
+impl AILevel {
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "easy" => Some(AILevel::Easy),
+            "medium" => Some(AILevel::Medium),
+            "hard" => Some(AILevel::Hard),
+            _ => None,
+        }
+    }
 }
 
 pub fn minimax(

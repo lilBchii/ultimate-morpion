@@ -224,6 +224,11 @@ impl Morpion {
         }
     }
 
+    pub fn is_over(&self) -> bool {
+        if let PlayingState::Continue = self.state { return false; }
+        true
+    }
+
     pub fn index_is_playable(&self, ult_index: usize, index: usize) -> bool {
         self.board.states[ult_index] == CellState::Free
             && self.board.cells[ult_index][index] == CellState::Free
@@ -251,6 +256,47 @@ impl Morpion {
         // Change player
         self.player = self.player.other();
         self.state = self.check_playing_state();
+    }
+
+    pub fn ai_move(&self, ai_level: AILevel) -> Self {
+        let children = generate_children(&self);
+        let mut best_move_index = 0;
+        let mut max_score = isize::MIN;
+        for (index, child) in children.iter().enumerate() {
+            let mut score = match ai_level {
+                AILevel::Easy => alpha_beta(
+                    child,
+                    5,
+                    isize::MIN,
+                    isize::MAX,
+                    self.player,
+                    corner_heuristic,
+                ),
+                AILevel::Medium => alpha_beta(
+                    child,
+                    6,
+                    isize::MIN,
+                    isize::MAX,
+                    self.player,
+                    center_heuristic,
+                ),
+                AILevel::Hard => alpha_beta(
+                    child,
+                    6,
+                    isize::MIN,
+                    isize::MAX,
+                    self.player,
+                    everywhere_heuristic,
+                ),
+            };
+            score += score * 10 + noise(2);
+            if score > max_score {
+                max_score = score;
+                best_move_index = index;
+            }
+        }
+
+        children[best_move_index].clone()
     }
 
     pub fn check_playing_state(&self) -> PlayingState {
@@ -346,43 +392,7 @@ impl MorpionScene {
             self.ai_thread = Some(thread::spawn(move || {
                 //we can sleep if it's too fast, but it doesn't seem necessary:
                 //thread::sleep(Duration::from_secs(1));
-                let children = generate_children(&current_state);
-                let mut best_move_index = 0;
-                let mut max_score = isize::MIN;
-                for (index, child) in children.iter().enumerate() {
-                    let mut score = match ai_level {
-                        AILevel::Easy => alpha_beta(
-                            child,
-                            5,
-                            isize::MIN,
-                            isize::MAX,
-                            current_state.player,
-                            corner_heuristic,
-                        ),
-                        AILevel::Medium => alpha_beta(
-                            child,
-                            6,
-                            isize::MIN,
-                            isize::MAX,
-                            current_state.player,
-                            center_heuristic,
-                        ),
-                        AILevel::Hard => alpha_beta(
-                            child,
-                            6,
-                            isize::MIN,
-                            isize::MAX,
-                            current_state.player,
-                            everywhere_heuristic,
-                        ),
-                    };
-                    score += score * 10 + noise(2);
-                    if score > max_score {
-                        max_score = score;
-                        best_move_index = index;
-                    }
-                }
-                let new_state = children[best_move_index].clone();
+                let new_state = current_state.ai_move(ai_level);
                 //send AI move with the mpsc Sender
                 tx.send(new_state)
                     .unwrap_or_else(|_| println!("channel killed"));
