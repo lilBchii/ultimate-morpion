@@ -353,7 +353,7 @@ impl MorpionScene {
                     let mut score = match ai_level {
                         AILevel::Easy => alpha_beta(
                             child,
-                            6,
+                            5,
                             isize::MIN,
                             isize::MAX,
                             current_state.player,
@@ -361,7 +361,7 @@ impl MorpionScene {
                         ),
                         AILevel::Medium => alpha_beta(
                             child,
-                            7,
+                            6,
                             isize::MIN,
                             isize::MAX,
                             current_state.player,
@@ -369,7 +369,7 @@ impl MorpionScene {
                         ),
                         AILevel::Hard => alpha_beta(
                             child,
-                            7,
+                            6,
                             isize::MIN,
                             isize::MAX,
                             current_state.player,
