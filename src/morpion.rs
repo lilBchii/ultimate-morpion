@@ -225,8 +225,7 @@ impl Morpion {
     }
 
     pub fn is_over(&self) -> bool {
-        if let PlayingState::Continue = self.state { return false; }
-        true
+        !(self.state == PlayingState::Continue)
     }
 
     pub fn index_is_playable(&self, ult_index: usize, index: usize) -> bool {
@@ -259,7 +258,7 @@ impl Morpion {
     }
 
     pub fn ai_move(&self, ai_level: AILevel) -> Self {
-        let children = generate_children(&self);
+        let children = generate_children(self);
         let mut best_move_index = 0;
         let mut max_score = isize::MIN;
         for (index, child) in children.iter().enumerate() {
