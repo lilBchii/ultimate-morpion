@@ -2,6 +2,8 @@ use crate::ai::AILevel;
 use crate::morpion::PlayingState::Win;
 use crate::morpion::{Morpion, Player, PlayingState};
 
+/// Launches a series of AI vs AI fights.
+/// Simulates `n` games between two AI levels and prints the results.
 pub fn launch_fights(x_level: AILevel, o_level: AILevel, n: usize) {
     let mut f = n;
     let mut x_win = 0;
@@ -36,6 +38,8 @@ pub fn launch_fights(x_level: AILevel, o_level: AILevel, n: usize) {
     );
 }
 
+/// Simulates a single AI vs AI fight.
+/// Plays a game of _Morpion_ between two AI players of specified levels and returns the game result.
 fn fight(x_level: AILevel, o_level: AILevel) -> PlayingState {
     let mut morpion = Morpion::new();
     loop {
@@ -44,7 +48,7 @@ fn fight(x_level: AILevel, o_level: AILevel) -> PlayingState {
             Player::O => morpion.ai_move(o_level),
         };
         if morpion.is_over() {
-            return morpion.state;
+            break morpion.state;
         }
     }
 }

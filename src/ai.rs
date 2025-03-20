@@ -5,14 +5,21 @@ const WEIGHTS_CENTER: [isize; 9] = [40, 10, 40, 10, 45, 10, 40, 10, 40];
 const WEIGHTS_CORNER: [isize; 9] = [45, 10, 45, 10, 15, 10, 45, 10, 45];
 const WINNING_WEIGHT: isize = 10000;
 
+/// Represents the different AI difficulty levels.
+/// Determines the AI's decision-making complexity in the game.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum AILevel {
+    /// The easiest difficulty, making basic and predictable moves.
     Easy,
+    /// A medium difficulty level with a better strategy.
     Medium,
+    /// The hardest difficulty, utilizing advanced heuristics.
     Hard,
 }
 
 impl AILevel {
+    /// Converts a string representation of AI difficulty level into an [`AILevel`] enum.
+    /// Returns `None` if the input string does not match any known level.
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "easy" => Some(AILevel::Easy),
@@ -23,6 +30,8 @@ impl AILevel {
     }
 }
 
+/// Implements the _Minimax algorithm_ for decision-making in the game.
+/// Evaluates possible moves and returns the best score for the maximizing player.
 pub fn minimax(
     node: &Morpion,
     depth: isize,
@@ -46,6 +55,8 @@ pub fn minimax(
     value
 }
 
+/// Implements the _Alpha-Beta Pruning optimization_ for the _Minimax algorithm_.
+/// Reduces the number of nodes evaluated by pruning branches that won't be selected.
 pub fn alpha_beta(
     node: &Morpion,
     depth: isize,
@@ -93,6 +104,8 @@ pub fn alpha_beta(
     value
 }
 
+/// Determines the direction of evaluation for a given player.
+/// Returns `1` if the actual player is the maximizing player, otherwise `-1`.
 fn dir(actual_player: Player, maximizing_player: Player) -> isize {
     if actual_player == maximizing_player {
         1
@@ -101,6 +114,8 @@ fn dir(actual_player: Player, maximizing_player: Player) -> isize {
     }
 }
 
+/// Evaluates a game state using a weighted heuristic based on predefined weights.
+/// Weights influence the importance of different positions on the board.
 fn weighted_heuristic(node: &Morpion, maximizing_player: Player, weights: [isize; 9]) -> isize {
     let mut score: isize = 0;
     match node.state {
@@ -130,14 +145,20 @@ fn weighted_heuristic(node: &Morpion, maximizing_player: Player, weights: [isize
     score
 }
 
+/// Heuristic function that prioritizes the center of the board.
+/// Returns a score based on weighted positions with a preference for central control.
 pub fn center_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
     weighted_heuristic(node, maximizing_player, WEIGHTS_CENTER)
 }
 
+/// Heuristic function that prioritizes the corners of the board.
+/// Returns a score based on weighted positions, favoring corner control.
 pub fn corner_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
     weighted_heuristic(node, maximizing_player, WEIGHTS_CORNER)
 }
 
+/// Evaluates the game state based on winning sequences.
+/// Considers aligned marks that may lead to a win and assigns scores accordingly.
 pub fn winning_sequence_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
     let mut score: isize = 0;
     match node.state {
@@ -188,6 +209,8 @@ pub fn winning_sequence_heuristic(node: &Morpion, maximizing_player: Player) -> 
     score
 }
 
+/// A comprehensive heuristic combining _winning sequences_ and _positional evaluation_.
+/// Encourages strategic moves by considering both winning patterns and control zones.
 pub fn everywhere_heuristic(node: &Morpion, maximizing_player: Player) -> isize {
     let mut score: isize = winning_sequence_heuristic(node, maximizing_player);
     if node.focused_big_cell.is_none() {
@@ -197,15 +220,19 @@ pub fn everywhere_heuristic(node: &Morpion, maximizing_player: Player) -> isize 
     score
 }
 
-// Travel a morpion grid searching for a winning sequence.
-// A winning sequence is when a player has marked two aligned cells by row, column or diagonal:
-// X |  | X
-// ---------
-// O |  |
-// ---------
-// O |  |
-// In this example, X has a winning sequence but not O.
-// The function attributes a score of 2 for each winning sequence. The winning sequences are cumulated.
+/// Analyzes the board to find _winning sequences_.
+/// A winning sequence is defined as two aligned marks in a row, column, or diagonal.
+/// Returns a cumulative score for detected sequences.
+/// The winning sequences can be cumulated.
+/// ### Example
+/// ```
+/// X |  | X
+/// ---------
+/// O |  |
+/// ---------
+/// O |  |
+/// ```
+/// In this example, `X` has a winning sequence but not `O`.
 pub fn evaluate_winning_sequence(states: &[CellState; 9], maximizing_player: Player) -> isize {
     let mut score: isize = 0;
     let mut diag1_score: isize = 0;
@@ -245,6 +272,8 @@ pub fn evaluate_winning_sequence(states: &[CellState; 9], maximizing_player: Pla
     score
 }
 
+/// Generates all possible game states from the current node by simulating valid moves.
+/// Returns a vector of new game states representing all potential child nodes.
 pub fn generate_children(node: &Morpion) -> Vec<Morpion> {
     let mut children = Vec::new();
     for i in 0..9 {
@@ -259,6 +288,8 @@ pub fn generate_children(node: &Morpion) -> Vec<Morpion> {
     children
 }
 
+/// Generates a random noise value within the specified range.
+/// Can be used to introduce randomness in AI decision-making.
 pub fn noise(range: i32) -> isize {
     let mut rng = rand::rng();
     rng.random_range(-range..range) as isize

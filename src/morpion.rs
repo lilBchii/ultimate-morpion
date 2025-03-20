@@ -5,15 +5,15 @@ use glam::Vec2;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::thread::JoinHandle;
-use std::time::Duration;
 
 use crate::ai::{
-    alpha_beta, center_heuristic, corner_heuristic, everywhere_heuristic, generate_children, noise,
-    winning_sequence_heuristic, AILevel,
+    alpha_beta, center_heuristic, corner_heuristic, everywhere_heuristic, generate_children, noise
+    , AILevel,
 };
 use crate::{assets::Assets, coord_from_ids};
 use crate::{constants::*, GameMode, GameState};
 
+/// Represents a player in the game (either `X` or `O`).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Player {
     X,
@@ -21,6 +21,7 @@ pub enum Player {
 }
 
 impl Player {
+    /// Switches the player (`X` --> `O` and `O` --> `X`).
     pub fn other(&self) -> Player {
         match self {
             Player::X => Player::O,
@@ -30,6 +31,7 @@ impl Player {
 }
 
 impl std::fmt::Display for Player {
+    /// Implements the [`std::fmt::Display`] trait for `Player`, allowing it to be formatted as a string.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -42,6 +44,7 @@ impl std::fmt::Display for Player {
     }
 }
 
+/// Represents the state of a cell in the game board.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CellState {
     Occupied(Player),
@@ -50,6 +53,7 @@ pub enum CellState {
 }
 
 impl std::fmt::Display for CellState {
+    /// Implements the [`std::fmt::Display`] trait for `CellState`, allowing it to be formatted as a string.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -63,6 +67,7 @@ impl std::fmt::Display for CellState {
     }
 }
 
+/// Represents the game board, containing cells and their states.
 #[derive(Clone)]
 pub struct Board {
     pub cells: [[CellState; 9]; 9],
@@ -70,6 +75,7 @@ pub struct Board {
 }
 
 impl Board {
+    /// Creates a new empty board.
     fn new() -> Self {
         Self {
             cells: [[CellState::Free; 9]; 9],
@@ -78,12 +84,16 @@ impl Board {
     }
 }
 
+/// Checks if all cells in a given state array are occupied.
+/// Returns `true` if no `Free` cells remain, `false` otherwise.
 pub fn all_occupied(states: &[CellState; 9]) -> bool {
     states
         .iter()
         .all(|cell_state| !matches!(cell_state, CellState::Free))
 }
 
+/// Checks if a player has won in a given state.
+/// Returns `true` if the player has achieved a winning pattern, `false` otherwise.
 pub fn is_won_by(states: &[CellState; 9], player: Player) -> bool {
     let player = CellState::Occupied(player);
     (states[0] == player && states[1] == player && states[2] == player)
@@ -96,6 +106,7 @@ pub fn is_won_by(states: &[CellState; 9], player: Player) -> bool {
         || (states[2] == player && states[4] == player && states[6] == player)
 }
 
+/// Represents the current state of the game.
 #[derive(Debug, PartialEq, Clone)]
 pub enum PlayingState {
     Tie,
@@ -103,6 +114,7 @@ pub enum PlayingState {
     Continue,
 }
 
+/// Represents the game logic and state management for the game (_Morpion_).
 #[derive(Clone)]
 pub struct Morpion {
     pub board: Board,
@@ -111,6 +123,7 @@ pub struct Morpion {
     pub focused_big_cell: Option<usize>,
 }
 
+/// Implements the [`std::fmt::Display`] trait for `Morpion`, allowing it to be printed as a board.
 impl std::fmt::Display for Morpion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let board = &self.board;
@@ -215,6 +228,7 @@ impl std::fmt::Display for Morpion {
 }
 
 impl Morpion {
+    /// Creates a new _Morpion_ game instance with an empty board.
     pub fn new() -> Self {
         Self {
             board: Board::new(),
@@ -224,10 +238,15 @@ impl Morpion {
         }
     }
 
+    /// Checks if the game is over.
+    /// Returns `true` if the game has ended, `false` otherwise.
     pub fn is_over(&self) -> bool {
         !(self.state == PlayingState::Continue)
     }
 
+    /// Determines if a specific cell is playable.
+    /// A move is playable if it is in a valid position and follows the game's rules
+    /// (see [Ultimate tic-tac-toe](https://en.wikipedia.org/wiki/Ultimate_tic-tac-toe)).
     pub fn index_is_playable(&self, ult_index: usize, index: usize) -> bool {
         self.board.states[ult_index] == CellState::Free
             && self.board.cells[ult_index][index] == CellState::Free
@@ -237,6 +256,8 @@ impl Morpion {
                 || self.focused_big_cell.is_none())
     }
 
+    /// Plays a move at the specified position.
+    /// Updates the board state, switches players, and checks for game-ending conditions.
     pub fn play_at(&mut self, ult_index: usize, index: usize) {
         // Cell becomes occupied by player
         self.board.cells[ult_index][index] = CellState::Occupied(self.player);
@@ -257,6 +278,8 @@ impl Morpion {
         self.state = self.check_playing_state();
     }
 
+    /// Computes the next AI move based on the given AI level.
+    /// Uses the _Alpha-Beta pruning algorithm_ with different heuristics.
     pub fn ai_move(&self, ai_level: AILevel) -> Self {
         let children = generate_children(self);
         let mut best_move_index = 0;
@@ -298,6 +321,8 @@ impl Morpion {
         children[best_move_index].clone()
     }
 
+    /// Evaluates the current game state.
+    /// Returns [`PlayingState::Win(Player)`], [`PlayingState::Tie`], or [`PlayingState::Continue`].
     pub fn check_playing_state(&self) -> PlayingState {
         if is_won_by(&self.board.states, self.player.other()) {
             PlayingState::Win(self.player.other())
@@ -319,6 +344,7 @@ impl Morpion {
         }
     }
 
+    /// Resets the game board, player turn, and game state.
     pub fn reset(&mut self) {
         self.board = Board::new();
         self.player = Player::X;
@@ -327,6 +353,7 @@ impl Morpion {
     }
 }
 
+/// Represents the scene for rendering and managing the _Morpion_ game.
 pub struct MorpionScene {
     pub morpion: Morpion,
     assets: Assets,
@@ -338,6 +365,7 @@ pub struct MorpionScene {
 }
 
 impl MorpionScene {
+    /// Creates a new `MorpionScene` with the default game setup.
     pub fn new(ctx: &mut Context) -> GameResult<Self> {
         Ok(Self {
             morpion: Morpion::new(),
@@ -350,6 +378,7 @@ impl MorpionScene {
         })
     }
 
+    /// Resets the game scene, including the game state and UI text.
     pub fn reset(&mut self) {
         self.morpion.reset();
         self.turn = 1;
@@ -358,6 +387,7 @@ impl MorpionScene {
         self.ai_thread = None;
     }
 
+    /// Handles a player's move if they have clicked on a playable cell.
     fn player_plays(&mut self) {
         // If cell clicked
         if let Some((ult_index, index)) = self.clicked {
@@ -368,8 +398,9 @@ impl MorpionScene {
         }
     }
 
+    /// Handles the AI move logic using multithreading (because AI's computation can take time and freeze the UI).
+    /// Spawns a separate thread to compute the AI move asynchronously.
     fn ai_plays(&mut self, ai_level: AILevel) {
-        //ggez::timer::sleep(Duration::from_millis(500));
         //check if a thread is running
         if let Some((_, rx)) = &self.ai_channel {
             if let Ok(new_state) = rx.try_recv() {
@@ -399,6 +430,8 @@ impl MorpionScene {
         }
     }
 
+    /// Updates the game state based on the current mode (`PvP`, `PvAI`, `AIvAI`).
+    /// Processes user inputs and updates the game logic accordingly.
     pub fn update(&mut self, ctx: &mut Context, state: &mut GameState, game_mode: GameMode) {
         while ctx.time.check_update_time(DESIRED_FPS) {
             match self.morpion.state {
@@ -456,10 +489,11 @@ impl MorpionScene {
 }
 
 impl Drawable for MorpionScene {
+    /// Draws the game board, grid, and game elements onto the screen.
     fn draw(
         &self,
         canvas: &mut ggez::graphics::Canvas,
-        _param: impl Into<ggez::graphics::DrawParam>,
+        _param: impl Into<DrawParam>,
     ) {
         // Grid
         canvas.draw(&self.assets.big_grid, DrawParam::default());
@@ -532,10 +566,11 @@ impl Drawable for MorpionScene {
         );
     }
 
+    /// Defines the dimensions of the game scene (returns `None` for dynamic sizing).
     fn dimensions(
         &self,
         _gfx: &impl ggez::context::Has<ggez::graphics::GraphicsContext>,
-    ) -> Option<ggez::graphics::Rect> {
+    ) -> Option<Rect> {
         None
     }
 }
