@@ -264,15 +264,13 @@ impl Morpion {
         // If big cell is won by player big cell is now occupied
         if is_won_by(&self.board.cells[ult_index], self.player) {
             self.board.states[ult_index] = CellState::Occupied(self.player);
-        } else if all_occupied(&self.board.states) {
+        } else if all_occupied(&self.board.cells[ult_index]) {
             // Else if all cells of big cell are occupied then big cell is tie
             self.board.states[ult_index] = CellState::Tie;
         }
         // Check if index is free to determine next focused big cell
         match self.board.states[index] {
-            CellState::Free if !all_occupied(&self.board.cells[index]) => {
-                self.focused_big_cell = Some(index)
-            }
+            CellState::Free => self.focused_big_cell = Some(index),
             _ => self.focused_big_cell = None,
         }
 
@@ -500,9 +498,7 @@ impl Drawable for MorpionScene {
             );
             let mesh = match self.morpion.focused_big_cell {
                 Some(index) if index == i => &self.assets.focused_grid,
-                None if self.morpion.board.states[i] == CellState::Free
-                    && !all_occupied(&self.morpion.board.cells[i]) =>
-                {
+                None if self.morpion.board.states[i] == CellState::Free => {
                     &self.assets.focused_grid
                 }
                 _ => &self.assets.lil_grid,
