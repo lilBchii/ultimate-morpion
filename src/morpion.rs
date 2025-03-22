@@ -7,8 +7,8 @@ use std::thread;
 use std::thread::JoinHandle;
 
 use crate::ai::{
-    alpha_beta, center_heuristic, corner_heuristic, everywhere_heuristic, generate_children, noise
-    , AILevel,
+    alpha_beta, center_heuristic, corner_heuristic, everywhere_heuristic, generate_children, noise,
+    AILevel,
 };
 use crate::{assets::Assets, coord_from_ids};
 use crate::{constants::*, GameMode, GameState};
@@ -270,9 +270,12 @@ impl Morpion {
         }
         // Check if index is free to determine next focused big cell
         match self.board.states[index] {
-            CellState::Free => self.focused_big_cell = Some(index),
+            CellState::Free if !all_occupied(&self.board.cells[index]) => {
+                self.focused_big_cell = Some(index)
+            }
             _ => self.focused_big_cell = None,
         }
+
         // Change player
         self.player = self.player.other();
         self.state = self.check_playing_state();
@@ -317,7 +320,6 @@ impl Morpion {
                 best_move_index = index;
             }
         }
-
         children[best_move_index].clone()
     }
 
@@ -327,9 +329,6 @@ impl Morpion {
         if is_won_by(&self.board.states, self.player.other()) {
             PlayingState::Win(self.player.other())
         } else if all_occupied(&self.board.states)
-            || self
-                .focused_big_cell
-                .is_some_and(|ult_index| all_occupied(&self.board.cells[ult_index]))
             || self
                 .board
                 .states
@@ -490,11 +489,7 @@ impl MorpionScene {
 
 impl Drawable for MorpionScene {
     /// Draws the game board, grid, and game elements onto the screen.
-    fn draw(
-        &self,
-        canvas: &mut ggez::graphics::Canvas,
-        _param: impl Into<DrawParam>,
-    ) {
+    fn draw(&self, canvas: &mut ggez::graphics::Canvas, _param: impl Into<DrawParam>) {
         // Grid
         canvas.draw(&self.assets.big_grid, DrawParam::default());
         // Grids
@@ -505,7 +500,9 @@ impl Drawable for MorpionScene {
             );
             let mesh = match self.morpion.focused_big_cell {
                 Some(index) if index == i => &self.assets.focused_grid,
-                None if self.morpion.board.states[i] == CellState::Free => {
+                None if self.morpion.board.states[i] == CellState::Free
+                    && !all_occupied(&self.morpion.board.cells[i]) =>
+                {
                     &self.assets.focused_grid
                 }
                 _ => &self.assets.lil_grid,
